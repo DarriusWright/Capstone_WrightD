@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Heap-PrioityQueue", "Heap-PrioityQueue\Heap-PrioityQueue.vcxproj", "{CE0633D4-22E0-41EC-A88A-3D6F5B0B3F90}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CE0633D4-22E0-41EC-A88A-3D6F5B0B3F90}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CE0633D4-22E0-41EC-A88A-3D6F5B0B3F90}.Debug|Win32.Build.0 = Debug|Win32
+		{CE0633D4-22E0-41EC-A88A-3D6F5B0B3F90}.Release|Win32.ActiveCfg = Release|Win32
+		{CE0633D4-22E0-41EC-A88A-3D6F5B0B3F90}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

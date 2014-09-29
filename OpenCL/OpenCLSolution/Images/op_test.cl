@@ -1,0 +1,1 @@
+__kernel void op_test(__global int4 * output){int4 result = (int4)(1,2,3,4);result+=5;*output = result;}

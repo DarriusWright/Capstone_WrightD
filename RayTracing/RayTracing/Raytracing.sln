@@ -1,0 +1,56 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Grid", "Grid\Grid.vcxproj", "{850CEBE4-2F70-449D-809A-E96DC31FE952}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2D5F52CC-468A-4BFF-B80A-2A301D604D4C} = {2D5F52CC-468A-4BFF-B80A-2A301D604D4C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Octree", "Octree\Octree.vcxproj", "{47D72EDC-7CDC-4923-BE5A-E078BC35E187}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2D5F52CC-468A-4BFF-B80A-2A301D604D4C} = {2D5F52CC-468A-4BFF-B80A-2A301D604D4C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KDTree", "KDTree\KDTree.vcxproj", "{F5AF7D11-3371-4354-AEA3-B7C247D4496B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2D5F52CC-468A-4BFF-B80A-2A301D604D4C} = {2D5F52CC-468A-4BFF-B80A-2A301D604D4C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Engine", "Engine\Engine.vcxproj", "{2D5F52CC-468A-4BFF-B80A-2A301D604D4C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SLBVH", "SLBVH\SLBVH.vcxproj", "{CBF87E95-9E1B-43F2-9089-39F8499DDE05}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2D5F52CC-468A-4BFF-B80A-2A301D604D4C} = {2D5F52CC-468A-4BFF-B80A-2A301D604D4C}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{850CEBE4-2F70-449D-809A-E96DC31FE952}.Debug|Win32.ActiveCfg = Debug|Win32
+		{850CEBE4-2F70-449D-809A-E96DC31FE952}.Debug|Win32.Build.0 = Debug|Win32
+		{850CEBE4-2F70-449D-809A-E96DC31FE952}.Release|Win32.ActiveCfg = Release|Win32
+		{850CEBE4-2F70-449D-809A-E96DC31FE952}.Release|Win32.Build.0 = Release|Win32
+		{47D72EDC-7CDC-4923-BE5A-E078BC35E187}.Debug|Win32.ActiveCfg = Debug|Win32
+		{47D72EDC-7CDC-4923-BE5A-E078BC35E187}.Debug|Win32.Build.0 = Debug|Win32
+		{47D72EDC-7CDC-4923-BE5A-E078BC35E187}.Release|Win32.ActiveCfg = Release|Win32
+		{47D72EDC-7CDC-4923-BE5A-E078BC35E187}.Release|Win32.Build.0 = Release|Win32
+		{F5AF7D11-3371-4354-AEA3-B7C247D4496B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F5AF7D11-3371-4354-AEA3-B7C247D4496B}.Debug|Win32.Build.0 = Debug|Win32
+		{F5AF7D11-3371-4354-AEA3-B7C247D4496B}.Release|Win32.ActiveCfg = Release|Win32
+		{F5AF7D11-3371-4354-AEA3-B7C247D4496B}.Release|Win32.Build.0 = Release|Win32
+		{2D5F52CC-468A-4BFF-B80A-2A301D604D4C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2D5F52CC-468A-4BFF-B80A-2A301D604D4C}.Debug|Win32.Build.0 = Debug|Win32
+		{2D5F52CC-468A-4BFF-B80A-2A301D604D4C}.Release|Win32.ActiveCfg = Release|Win32
+		{2D5F52CC-468A-4BFF-B80A-2A301D604D4C}.Release|Win32.Build.0 = Release|Win32
+		{CBF87E95-9E1B-43F2-9089-39F8499DDE05}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CBF87E95-9E1B-43F2-9089-39F8499DDE05}.Debug|Win32.Build.0 = Debug|Win32
+		{CBF87E95-9E1B-43F2-9089-39F8499DDE05}.Release|Win32.ActiveCfg = Release|Win32
+		{CBF87E95-9E1B-43F2-9089-39F8499DDE05}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
