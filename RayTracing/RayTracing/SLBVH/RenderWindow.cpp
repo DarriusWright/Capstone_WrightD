@@ -448,12 +448,13 @@ void RenderWindow::handleKeyInput()
 }
 void RenderWindow::initializeProgram()
 {
-	std::string files []  = { "Kernels/kernelHelperFunctions.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl", "Kernels/drawScene.opencl"};
+	std::string files []  = { "Kernels/kernelHelperFunctions.opencl","Kernels/generateMortonsCode.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl", "Kernels/drawScene.opencl"};
 	program = buildProgram(files, 5);
 	drawSceneKernel = clCreateKernel(program, "drawScene", &err);
 	sceneBBoxKernel = clCreateKernel(program, "generateSceneBBox", &err);
 	initializeCellsKernel = clCreateKernel(program, "initializeCells", &err);
 	findObjectCellsKernel = clCreateKernel(program,"findObjectCells", &err);
+	initializeMortonCodesKernel = clCreateKernel(program,"initializeMortonCodes", &err);
 }
 void RenderWindow::initializeSceneBBox()
 {

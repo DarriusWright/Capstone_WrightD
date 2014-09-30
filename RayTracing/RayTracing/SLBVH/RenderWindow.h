@@ -115,6 +115,7 @@ private:
 
 	cl_kernel sceneBBoxKernel;
 	cl_kernel initializeCellsKernel;
+	cl_kernel initializeMortonCodesKernel;
 	cl_kernel drawSceneKernel;
 	cl_kernel findObjectCellsKernel;
 
