@@ -16,7 +16,7 @@ public :
 	glm::vec4 position;
 	cl_int2 triangleIndices;
 	cl_int index; 
-	cl_float dummy;
+	cl_uint code;
 
 
 };

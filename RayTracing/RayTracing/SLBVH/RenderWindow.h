@@ -79,6 +79,7 @@ private:
 
 	void construct();
 	void initializeCL();
+	void initializeObjects();
 	void initializeProgram();
 	void initializeSceneBBox();
 	void initializeCells();

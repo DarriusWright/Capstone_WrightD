@@ -24,6 +24,7 @@ typedef struct
     float4 position;
     int2 triangleIndices;
     int cellId;
+    uint code;
     
     
 }Object;

@@ -181,7 +181,7 @@ void RenderWindow::updateBBox()
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 
 	box = b;
-	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],0);
+	objectMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],0);
 	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light), &lights[0],0);
 	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,sizeof(BBox), &box,&err);
 	lengthOfObjects = objects.size();
@@ -466,7 +466,7 @@ void RenderWindow::initializeSceneBBox()
 	clImageFormat.image_channel_data_type = CL_UNSIGNED_INT8;
 
 
-	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
+	objectMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
 	if(err != CL_SUCCESS)
 	{
 		cout << "Error creating Object" << endl;

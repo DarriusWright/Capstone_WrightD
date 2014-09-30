@@ -16,6 +16,19 @@ struct BBox
 	glm::vec3 max;
 };
 
+
+inline uint64_t mortonEncode_for(unsigned int x, unsigned int y, unsigned int z){
+    uint64_t answer = 0;
+	int number = (sizeof(uint64_t)* CHAR_BIT)/3;
+    for (uint64_t i = 0; i < (sizeof(uint64_t)* CHAR_BIT)/3; ++i) {
+        answer |= ((x & ((uint64_t)1 << i)) << 2*i) | ((y & ((uint64_t)1 << i)) << (2*i + 1)) | ((z & ((uint64_t)1 << i)) << (2*i + 2));
+    }
+    return answer;
+}
+
+
+
+
 unsigned int mortonCode(BBox b)
 {
 	glm::vec3 bbMin = 3.0f* b.min;
@@ -51,6 +64,27 @@ unsigned int mortonCode(BBox b)
 
 }
 
+unsigned int part(unsigned int n)
+{
+
+
+
+	n = (n ^ (n<<16))& 0xff0000ff;
+	n = (n ^ (n<<8)) & 0x0300f00f;
+	n = (n ^ (n<<4)) & 0x030c30c3;
+	n = (n ^ (n<<2)) & 0x09249249;
+
+	return n;
+}
+
+unsigned int mCode (unsigned int x,unsigned int y,unsigned int z)
+{
+	return (part(z) << 2) +(part(y) << 1) + part(x);
+}
+
+
+
+
 
 int main()
 {
@@ -58,7 +92,9 @@ int main()
 	BBox b(glm::vec3(10,-10,70), glm::vec3(40,20,100));
 
 	cout << mortonCode(b) << endl << endl;
-
+	glm::vec3 centerPoint = b.min + ((b.max - b.min)/2.0f);
+	cout << mortonEncode_for(centerPoint.x ,centerPoint.y,centerPoint.z)  << endl;
+	cout << mCode(4,2,1)<< endl;
 	system("pause");
 	return 0;
 }
