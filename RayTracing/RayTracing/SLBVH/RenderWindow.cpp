@@ -70,7 +70,7 @@ void RenderWindow::construct()
 		//spheres.push_back(sphere);
 
 		Object object; 
-	
+
 		BBox b = {
 			glm::vec3(sphere.getMinX(),
 			sphere.getMinY(),
@@ -79,7 +79,7 @@ void RenderWindow::construct()
 			sphere.getMaxX(),
 			sphere.getMaxY(),
 			sphere.getMaxZ()),0.0f
-			
+
 		};
 		object.material = sphere.material;
 		object.box = b;
@@ -162,11 +162,11 @@ void RenderWindow::updateScene()
 	// 0
 	//updateBBox();
 	//updateCells();
-	
+
 	profileTimer.start();
 	updateDrawScene();
 	float drawTimer = profileTimer.elapsed()/1000.0f;
-	
+
 	imageLabel.setPixmap(QPixmap::fromImage(readImage));
 
 	float time = (timer.elapsed()/1000.0f);
@@ -300,7 +300,7 @@ void RenderWindow::updateCells()
 	//	}
 	//}
 
-//	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
+	//	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
 
 
 }
@@ -321,6 +321,7 @@ void RenderWindow::releaseUpdate()
 	clReleaseMemObject(cellsBoxMem);//
 	clReleaseMemObject(minMem);//
 	clReleaseMemObject(maxMem);//
+	clReleaseMemObject(mortonMem);
 
 }
 cl_program RenderWindow::buildProgram(std::string files [], int numberOfFiles)
@@ -448,13 +449,14 @@ void RenderWindow::handleKeyInput()
 }
 void RenderWindow::initializeProgram()
 {
-	std::string files []  = { "Kernels/kernelHelperFunctions.opencl","Kernels/generateMortonsCode.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl", "Kernels/drawScene.opencl"};
-	program = buildProgram(files, 5);
+	std::string files []  = { "Kernels/kernelHelperFunctions.opencl","Kernels/sortMortonCodes.opencl","Kernels/generateMortonsCode.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl", "Kernels/drawScene.opencl"};
+	program = buildProgram(files, 6);
 	drawSceneKernel = clCreateKernel(program, "drawScene", &err);
 	sceneBBoxKernel = clCreateKernel(program, "generateSceneBBox", &err);
 	initializeCellsKernel = clCreateKernel(program, "initializeCells", &err);
 	findObjectCellsKernel = clCreateKernel(program,"findObjectCells", &err);
 	initializeMortonCodesKernel = clCreateKernel(program,"initializeMortonCodes", &err);
+	sortMortonKernel = clCreateKernel(program,"sortMortonCodes", &err);
 }
 void RenderWindow::initializeSceneBBox()
 {
@@ -564,8 +566,116 @@ void RenderWindow::initializeSceneBBox()
 }
 void RenderWindow::initializeCells()
 {
+
 	initCellWorkSize[0] = objects.size();
 
+	mortonNodes.resize(objects.size());
+
+	mortonMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(MortonNode) * objects.size(), &mortonNodes[0],&err);
+	//	std::vector<cl_float3> position;
+	//	position.resize(objects.size());
+	//	cl_mem positionMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float3) * objects.size(), &position[0],&err);
+
+	err |= clSetKernelArg(initializeMortonCodesKernel,0, sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(initializeMortonCodesKernel,1, sizeof(cl_mem), &mortonMem);
+	//err |= clSetKernelArg(initializeMortonCodesKernel,2, sizeof(cl_mem), &positionMem);
+
+	err = clEnqueueNDRangeKernel(queue, initializeMortonCodesKernel, 1 ,NULL, &initCellWorkSize[0], NULL, 0, NULL, NULL);
+
+	if(err != CL_SUCCESS) {
+		perror("Couldn't set the initializeMortonCodesKernel argument");
+		exit(1);   
+	} 
+
+	clEnqueueReadBuffer(queue,mortonMem,CL_TRUE,0, sizeof(MortonNode) * objects.size(), &mortonNodes[0],0,0,0);
+
+
+	uint stage, passOfStage, numStages, temp;
+	stage = passOfStage = numStages = 0;
+	uint globalSize = nextPowerOfTwo(mortonNodes.size());
+	uint localSize = 16;
+	vector<MortonNode> mortonNodesOut;
+	mortonNodesOut.resize(objects.size());
+
+
+	cl_mem mortonMemOut = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(MortonNode) * objects.size(), &mortonNodesOut[0],&err);
+	timer.start();
+
+	//err|=clSetKernelArg(sortMortonKernel, 0 , sizeof(cl_mem), &mortonMem);
+	//err|=clSetKernelArg(sortMortonKernel, 1, sizeof(cl_mem), &mortonMemOut);
+	//err|=clSetKernelArg(sortMortonKernel, 2, sizeof(MortonNode) * localSize, NULL);
+
+
+	//err|=clEnqueueNDRangeKernel(queue, sortMortonKernel, 1 ,NULL, 
+	//&globalSize, &localSize, 0, NULL, NULL);
+
+
+	//err|= clEnqueueReadBuffer(queue,mortonMemOut,CL_TRUE,0, sizeof(MortonNode) * objects.size(), &mortonNodesOut[0],0,0,0);
+
+	//clReleaseMemObject(mortonMemOut);
+	//clReleaseMemObject(mortonMem);
+
+	//cout <<  timer.elapsed()/1000.0f << endl;
+	//cout << "Done!" << endl;
+
+	/*for (int i = 0; i < objects.size(); i++)
+	{
+		int min = i;
+
+		for (int j = i; j < objects.size(); j++)
+		{
+
+			if(mortonNodes[min].code > mortonNodes[j].code)
+			{
+				min = j;
+			}
+
+		}
+		MortonNode n = mortonNodes[i];
+		mortonNodes[i] = mortonNodes[min];
+		mortonNodes[min] = n;
+
+	}*/
+
+
+	//uint workGroupSize;
+
+
+	err|=clSetKernelArg(sortMortonKernel, 0 , sizeof(cl_mem), &mortonMem);
+
+
+	timer.start();
+	
+	for (temp = mortonNodes.size(); temp >1; temp>>= 1)
+	{
+		numStages++;
+		globalSize = (uint)(mortonNodes.size()) >> 1;
+		
+		for (stage = 0; stage < numStages; stage++)
+		{
+			clSetKernelArg(sortMortonKernel, 1 , sizeof(uint), &stage);
+			for (passOfStage = 0; passOfStage < stage+1; passOfStage++)
+			{
+				clSetKernelArg(sortMortonKernel, 2 , sizeof(uint), &passOfStage);
+				clEnqueueNDRangeKernel(queue, sortMortonKernel, 1 ,NULL, 
+				&globalSize, NULL, 0, NULL, NULL);
+			}
+			
+		}
+		cout <<  timer.elapsed()/1000.0f <<endl;
+	}
+	cout <<  timer.elapsed()/1000.0f << endl;
+	
+
+	err|= clEnqueueReadBuffer(queue,mortonMem,CL_TRUE,0, sizeof(MortonNode) * objects.size(), &mortonNodes[0],0,0,0);
+
+
+
+	//	err |= clSetKernelArg(sortMortonKernel , 1 , sizeof(uint), 
+
+
+	//clEnqueueReadBuffer(queue,positionMem,CL_TRUE,0, sizeof(cl_float3) * objects.size(), &position[0],0,0,0);
+	//clReleaseMemObject(positionMem);
 	float wx =box.max[0] - box.min[0];
 	float wy =box.max[1] - box.min[1];
 	float wz =box.max[2] - box.min[2];
@@ -587,7 +697,7 @@ void RenderWindow::initializeCells()
 	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * numCells, &cells[0],&err);
 	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(BBox) * numCells, &cBoxes[0],&err);
 	sumMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int), &numberOfCellObjects,&err);
-	
+
 	//vector<Octree> nodes;
 	//nodes.resize(treeManager->octreeNodes.size());
 	//cl_mem treeMem = clCreateBuffer(context,CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(Octree) * treeManager->octreeNodes.size(), &treeManager->octreeNodes[0],&err);;
@@ -753,10 +863,10 @@ void RenderWindow::initializeCL()
 	profileTimer.start();
 	initializeSceneBBox();
 	cout << "SceneBox : " << (profileTimer.elapsed()/1000.0f) << endl;
-	
+
 	timer.start();
-//	treeManager = new OctreeManager(Octree(box.min + (glm::abs(box.max - box.min)/2.0f),box, 0));
-//	treeManager->insert(objects);
+	//	treeManager = new OctreeManager(Octree(box.min + (glm::abs(box.max - box.min)/2.0f),box, 0));
+	//	treeManager->insert(objects);
 	float time = timer.elapsed()/ 1000.0f;
 
 

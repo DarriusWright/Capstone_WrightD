@@ -29,6 +29,14 @@ typedef struct
     
 }Object;
 
+
+typedef struct 
+{
+	unsigned int code;
+	unsigned int index;
+}MortonNode;
+
+
 typedef struct
 {
 	float3 u;

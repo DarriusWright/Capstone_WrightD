@@ -44,6 +44,9 @@
     <ClInclude Include="TriangleWindow.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Morton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Kernels\generateMortonsCode.opencl" />
@@ -53,5 +56,6 @@
     <None Include="Kernels\initializeCells.opencl" />
     <None Include="Kernels\kernelHelperFunctions.opencl" />
     <None Include="Kernels\sumCells.opencl" />
+    <None Include="Kernels\sortMortonCodes.opencl" />
   </ItemGroup>
 </Project>

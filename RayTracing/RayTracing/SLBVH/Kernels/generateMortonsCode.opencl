@@ -10,29 +10,21 @@ unsigned int part(unsigned int n)
 }
 
 
-
-
-
 unsigned int mCode (unsigned int x,unsigned int y,unsigned int z)
 {
 	return (part(z) << 2) +(part(y) << 1) + part(x);
 }
 
-unsigned int mCode(uint3 position)
-{
-	return mCode(position.x, position.y,position.z);
-}
 
-typedef struct 
-{
-	unsigned int code;
-	unsigned int index;
-}MortonNode;
-
-__kernel void initializeCells(__global Object * objects, __global * MortonNode codes)
+__kernel void initializeMortonCodes(__global Object * objects, __global MortonNode *  codes//,
+	)//__global float3 * positions)
 {
 	int objectIndex = get_global_id(0);
 	codes[objectIndex].index = objectIndex;
-	float3 position = objects[objectIndex].box.min + ((objects[objectIndex].box.max -objects[objectIndex].box.min) /2.0f);
-	codes[objectIndex].code = mCode(convert_uint3(position));
+
+	float3 position = objects[objectIndex].position.xyz;
+	uint3 convertedPosition =  convert_uint3(position);
+//	positions[objectIndex] = position;
+
+	codes[objectIndex].code = mCode(convertedPosition.x,convertedPosition.y,convertedPosition.z );
 }

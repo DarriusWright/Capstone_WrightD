@@ -23,6 +23,9 @@
 #include <QtGui\qopenglframebufferobject.h>
 #include <CL\cl_gl.h>
 
+#include "Morton.h"
+
+
 using std::vector;
 using std::cout;
 using std::endl;
@@ -72,6 +75,7 @@ private:
 	vector<cl_int> cellIncrements;
 	vector<BBox> cBoxes;
 	vector<cl_uint> cells;
+	vector <MortonNode> mortonNodes;
 
 	cl_image_format clImageFormat;
 
@@ -116,6 +120,7 @@ private:
 	cl_kernel sceneBBoxKernel;
 	cl_kernel initializeCellsKernel;
 	cl_kernel initializeMortonCodesKernel;
+	cl_kernel sortMortonKernel;
 	cl_kernel drawSceneKernel;
 	cl_kernel findObjectCellsKernel;
 
@@ -128,6 +133,7 @@ private:
 	cl_mem cellsBoxMem;
 	cl_mem minMem;
 	cl_mem maxMem;
+	cl_mem mortonMem;
 
 	cl_mem writeCLImage;
 	cl_mem lightMem;
