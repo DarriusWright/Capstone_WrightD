@@ -31,6 +31,7 @@ inline uint64_t mortonEncode_for(unsigned int x, unsigned int y, unsigned int z)
 
 unsigned int mortonCode(BBox b)
 {
+	cout <<"Number Of Items" << (1<<16) << endl;
 	glm::vec3 bbMin = 3.0f* b.min;
 	glm::vec3 bbMax = 3.0f* b.max;
 

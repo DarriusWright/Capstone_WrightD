@@ -146,11 +146,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Program.cpp" />
+    <ClCompile Include="RadixSort.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ocl_macros.h" />
     <ClInclude Include="Program.h" />
+    <ClInclude Include="RadixSort.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="matvec.cl" />

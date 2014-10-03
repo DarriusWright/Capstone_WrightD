@@ -1,238 +1,595 @@
-
-
-#define _CRT_SECURE_NO_WARNINGS
-//list all opencl programs here
-#define PROGRAM_FILE "op_test.cl"
-#define KERNEL_FUNC "op_test"
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include <string.h>
+//#include <alloca.h>
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
+#include "Timer.h"
 
-#ifdef MAC
-#include <OpenCL/cl.h>
-#else  
+//#include "radixsort_config.h"
+//#include "common.h"
+
+#ifdef  __APPLE__
+#include <OpenCL/opencl.h>
+#else
 #include <CL/cl.h>
 #endif
-#include <cstdlib>
 
+#include <vector>
 #include <iostream>
- using std::cout;
- using std::endl;
 
- /*Dimensions and work items
-	the number of dimensions needed for a work item's ID usually equals the number of indices you;d use to access an element
-	of an array containing the work items data.for example and array of points(x,y) you would use two dimension and 
-	for a point (x,y,z) you would use three dimensions.
 
-	work items use the global id for each dimension of the data, this is accessed through get_global_id
 
-	lets say that you want to process the data in a 9x9 images normally you would use two for loops 
-	for(i = 3 ; i < 9; i++)
+struct MortonCode
+{
+	cl_uint code;
+	cl_uint index;
+};
+
+static unsigned int GROUP_SIZE = 64;                // ATI HD7870 has 20 parallel compute units, !!!wavefront programming!!!
+static unsigned int  BIN_SIZE  = 256;
+static unsigned int DATA_SIZE =  (1<<17);
+
+cl_kernel histogramKernel;
+cl_kernel permuteKernel  ;
+cl_kernel unifiedBlockScanKernel ;
+cl_kernel blockScanKernel ;
+cl_kernel prefixSumKernel;
+cl_kernel blockAddKernel ;
+cl_kernel mergePrefixSumsKernel   ;
+cl_mem unsortedData_d    ;
+cl_mem histogram_d       ;
+cl_mem scannedHistogram_d;
+cl_mem sortedData_d      ;
+cl_mem sum_in_d          ;
+cl_mem sum_out_d         ;
+cl_mem summary_in_d      ;
+cl_mem summary_out_d     ;
+cl_command_queue commandQueue;
+cl_context context ;
+
+int
+	waitAndReleaseDevice(cl_event* event) {
+		cl_int status = CL_SUCCESS;
+		cl_int eventStatus = CL_QUEUED;
+		while(eventStatus != CL_COMPLETE) {
+			clGetEventInfo(*event, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &eventStatus, NULL);
+		}
+		status = clReleaseEvent(*event);
+		//CHECK_ERROR(status, CL_SUCCESS, "Failed to release event\n");
+		return 0;
+}
+
+static unsigned int bitsbyte  = 8u;
+static unsigned int R (1 << bitsbyte);
+static unsigned int R_MASK  = 0xFFU;
+
+// This is the threaded-historgram which builds histograms
+// and bins them based on a size of 256 or 1<<8
+cl_event execEvt;
+
+
+void computeHistogram(int currByte) {
+	cl_int status;
+	size_t globalThreads = DATA_SIZE;
+	size_t localThreads  = BIN_SIZE;
+
+
+	status = clSetKernelArg(histogramKernel, 0, sizeof(cl_mem), (void*)&unsortedData_d);
+	//std::cout << status << std::endl;
+	status = clSetKernelArg(histogramKernel, 1, sizeof(cl_mem), (void*)&histogram_d);
+	//std::cout << status << std::endl;
+
+	status = clSetKernelArg(histogramKernel, 2, sizeof(cl_int), (void*)&currByte);
+	//std::cout << status << std::endl;
+
+	status = clSetKernelArg(histogramKernel, 3, sizeof(cl_int) * BIN_SIZE, NULL); 
+	//std::cout << status << std::endl;
+
+
+	status = clEnqueueNDRangeKernel(
+		commandQueue, 
+		histogramKernel,
+		1,
+		NULL,
+		&globalThreads,
+		&localThreads,
+		0,
+		NULL,&execEvt);
+	clFlush(commandQueue);
+
+}
+
+void computeRankingNPermutations(int currByte, size_t groupSize) {
+	cl_int status;
+	//  cl_event execEvt;
+
+	size_t globalThreads = DATA_SIZE/R;
+	size_t localThreads  = groupSize;
+
+	status = clSetKernelArg(permuteKernel, 0, sizeof(cl_mem), (void*)&unsortedData_d);
+	//std::cout << status << std::endl;
+
+	status = clSetKernelArg(permuteKernel, 1, sizeof(cl_mem), (void*)&scannedHistogram_d);
+	//std::cout << status << std::endl;
+	status = clSetKernelArg(permuteKernel, 2, sizeof(cl_int), (void*)&currByte);
+	//std::cout << status << std::endl;
+	status = clSetKernelArg(permuteKernel, 3, groupSize * R * sizeof(cl_ushort), NULL); // shared memory
+	//std::cout << status << std::endl;
+	status = clSetKernelArg(permuteKernel, 4, sizeof(cl_mem), (void*)&sortedData_d);
+	//std::cout << status << std::endl;
+
+
+
+
+	status = clEnqueueNDRangeKernel(commandQueue, permuteKernel, 1, NULL, &globalThreads, &localThreads, 0, NULL, &execEvt);
+	//std::cout << status << std::endl;
+	clFlush(commandQueue);
+	clFinish(commandQueue);
+
+	//waitAndReleaseDevice(&execEvt);
+
+	cl_event copyEvt;
+
+	status = clEnqueueCopyBuffer(commandQueue, sortedData_d, unsortedData_d, 0, 0, DATA_SIZE * sizeof(MortonCode), 0, NULL, &copyEvt);
+	//std::cout << status << std::endl;
+	clFlush(commandQueue);
+	clFinish(commandQueue);
+	//waitAndReleaseDevice(&copyEvt);
+}
+
+void computeBlockScans() {
+	cl_int status;
+
+	size_t numOfGroups = DATA_SIZE / BIN_SIZE;
+	size_t globalThreads[2] = {numOfGroups, R};
+	size_t localThreads[2]  = {GROUP_SIZE, 1};
+	cl_uint groupSize = GROUP_SIZE;
+
+	status = clSetKernelArg(blockScanKernel, 0, sizeof(cl_mem), (void*)&scannedHistogram_d);
+	//std::cout << status << std::endl;
+	status = clSetKernelArg(blockScanKernel, 1, sizeof(cl_mem), (void*)&histogram_d);
+	//std::cout << status << std::endl;
+	status = clSetKernelArg(blockScanKernel, 2, GROUP_SIZE * sizeof(cl_uint), NULL);
+	//std::cout << status << std::endl;
+	status = clSetKernelArg(blockScanKernel, 3, sizeof(cl_uint), &groupSize); 
+	//std::cout << status << std::endl;
+	status = clSetKernelArg(blockScanKernel, 4, sizeof(cl_mem), &sum_in_d);
+	//std::cout << status << std::endl;
+
+	// cl_event execEvt;
+	status = clEnqueueNDRangeKernel(
+		commandQueue,
+		blockScanKernel,
+		2,
+		NULL,
+		globalThreads,
+		localThreads,
+		0, 
+		NULL,
+		&execEvt);
+	//std::cout << status << std::endl;
+
+	clFlush(commandQueue);
+	clFinish(commandQueue);
+
+
+
+	//	std::vector<cl_uint> sums;
+	//	sums.resize(DATA_SIZE);
+
+	//	clEnqueueReadBuffer(commandQueue,sum_in_d,CL_TRUE,0, DATA_SIZE * sizeof(cl_uint) , &sums[0],0,0,0);
+
+
+	//	std::vector<cl_uint> histogram;
+	//histogram.resize( numOfGroups * groupSize * R);
+	//
+
+	//clEnqueueReadBuffer(commandQueue,histogram_d,CL_TRUE,0, DATA_SIZE * sizeof(cl_uint) , &histogram[0],0,0,0);
+	//
+
+	//waitAndReleaseDevice(&execEvt);
+
+	// If there is only 1 workgroup, we will skip the block-addition and prefix-sum kernel
+	if(numOfGroups/GROUP_SIZE != 1) {
+		size_t globalThreadsPrefix[2] = {numOfGroups/GROUP_SIZE, R};
+		status = clSetKernelArg(prefixSumKernel, 0, sizeof(cl_mem), (void*)&sum_out_d);
+		//std::cout << status << std::endl;
+		status = clSetKernelArg(prefixSumKernel, 1, sizeof(cl_mem), (void*)&sum_in_d);
+		//std::cout << status << std::endl;
+		status = clSetKernelArg(prefixSumKernel, 2, sizeof(cl_mem), (void*)&summary_in_d);
+		//std::cout << status << std::endl;
+		cl_uint stride = (cl_uint)numOfGroups/GROUP_SIZE;
+		status = clSetKernelArg(prefixSumKernel, 3, sizeof(cl_uint), (void*)&stride);
+		//std::cout << status << std::endl;
+		cl_event prefixSumEvt;
+		status = clEnqueueNDRangeKernel(
+			commandQueue,
+			prefixSumKernel,
+			2,
+			NULL,
+			globalThreadsPrefix,
+			NULL,
+			0,
+			NULL,
+			&prefixSumEvt);
+		clFlush(commandQueue);
+		clFinish(commandQueue);
+		//waitAndReleaseDevice(&prefixSumEvt);
+		//std::cout << status << std::endl;
+
+		// Run block-addition kernel
+		cl_event execEvt2;
+		size_t globalThreadsAdd[2] = {numOfGroups, R};
+		size_t localThreadsAdd[2]  = {GROUP_SIZE, 1};
+		status = clSetKernelArg(blockAddKernel, 0, sizeof(cl_mem), (void*)&sum_out_d);  
+		//std::cout << status << std::endl;
+		status = clSetKernelArg(blockAddKernel, 1, sizeof(cl_mem), (void*)&scannedHistogram_d);  
+		//std::cout << status << std::endl;
+		status = clSetKernelArg(blockAddKernel, 2, sizeof(cl_uint), (void*)&stride);  
+		//std::cout << status << std::endl;
+		status = clEnqueueNDRangeKernel(
+			commandQueue,
+			blockAddKernel,
+			2,
+			NULL,
+			globalThreadsAdd,
+			localThreadsAdd,
+			0,
+			NULL,
+			&execEvt2);
+		clFlush(commandQueue);
+		//std::cout << status << std::endl;
+
+		//waitAndReleaseDevice(&execEvt2);
+		//clFinish(commandQueue);
+		clFinish(commandQueue);
+
+
+		// Run parallel array scan since we have GROUP_SIZE values which are summarized from each row
+		// and we accumulate them
+		size_t globalThreadsScan[1] = {R};
+		size_t localThreadsScan[1] = {R};
+		status = clSetKernelArg(unifiedBlockScanKernel, 0, sizeof(cl_mem), (void*)&summary_out_d);
+		//std::cout << status << std::endl;
+		if(numOfGroups/GROUP_SIZE != 1) 
+			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&summary_in_d); 
+		else
+			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&sum_in_d); 
+		//std::cout << status << std::endl;
+
+		status = clSetKernelArg(unifiedBlockScanKernel, 2, R * sizeof(cl_uint), NULL);  // shared memory
+		//std::cout << status << std::endl;
+		groupSize = R;
+		status = clSetKernelArg(unifiedBlockScanKernel, 3, sizeof(cl_uint), (void*)&groupSize); 
+		//std::cout << status << std::endl;
+		cl_event execEvt3;
+		status = clEnqueueNDRangeKernel(
+			commandQueue,
+			unifiedBlockScanKernel,
+			1,
+			NULL,
+			globalThreadsScan,
+			localThreadsScan,
+			0, 
+			NULL, 
+			NULL);
+		//std::cout << status << std::endl;
+
+		//clFlush(commandQueue);
+		//waitAndReleaseDevice(&execEvt3);
+		//clFinish(commandQueue);
+
+		cl_event execEvt4;
+		size_t globalThreadsOffset[2] = {numOfGroups, R};
+		status = clSetKernelArg(mergePrefixSumsKernel, 0, sizeof(cl_mem), (void*)&summary_out_d);
+		//std::cout << status << std::endl;
+		status = clSetKernelArg(mergePrefixSumsKernel, 1, sizeof(cl_mem), (void*)&scannedHistogram_d);
+		//std::cout << status << std::endl;
+		status = clEnqueueNDRangeKernel(commandQueue, mergePrefixSumsKernel, 2, NULL, globalThreadsOffset, NULL, 0, NULL, NULL);
+		//std::cout << status << std::endl;
+		//clFlush(commandQueue);
+		//clFinish(commandQueue);
+		//waitAndReleaseDevice(&execEvt4);
+	}
+}
+
+// Function that invokes the execution of the kernels
+void runKernels(cl_uint* dSortedData,
+				size_t numOfGroups,
+				size_t groupSize) {
+
+					int size = DATA_SIZE;
+					//std::vector<cl_uint> dataVector;
+					//dataVector.resize(DATA_SIZE);
+					//for(int i = 0; i < size; i++)
+					//{
+					//	dataVector[i] = dSortedData[i];
+					//}
+
+					Timer timer;
+					timer.start();
+					for(int currByte = 0; currByte < sizeof(cl_uint) * bitsbyte ; currByte += bitsbyte) {
+						computeHistogram(currByte);
+						computeBlockScans();
+						computeRankingNPermutations(currByte, groupSize);
+					}
+
+					cl_int status;
+					cl_uint* data = (cl_uint*)clEnqueueMapBuffer(commandQueue, sortedData_d, CL_TRUE, CL_MAP_READ, 0, size*sizeof(cl_uint),0,NULL,NULL,&status);
+					//CHECK_ERROR(status, CL_SUCCESS, "mapping buffer failed");
+					memcpy(dSortedData, data, size*sizeof(cl_uint));
+					timer.stop();
+					float endTime = timer.interval();
+					float frames = timer.getFramesPerSec();
+
+					std::cout << "Timer : " << endTime << std::endl;
+					std::cout << "Frames : " << frames << std::endl;
+
+					std::vector<cl_uint> dataVector;
+					dataVector.resize(size);
+					for(int i = 0; i < size; i++)
+					{
+						dataVector[i] = dSortedData[i];
+					}
+
+					clEnqueueUnmapMemObject(commandQueue,sortedData_d,data,0,NULL,NULL);
+
+					std::cout << "Done" << std::endl;
+}
+
+void runKernels(MortonCode* dSortedData,
+				size_t numOfGroups,
+				size_t groupSize) 
+{
+	int size = DATA_SIZE;
+
+		std::vector<MortonCode> dataVector;
+	dataVector.resize(size);
+
+
+	Timer timer;
+	timer.start();
+	for(int currByte = 0; currByte < sizeof(cl_uint) * bitsbyte ; currByte += bitsbyte) {
+		computeHistogram(currByte);
+		computeBlockScans();
+		computeRankingNPermutations(currByte, groupSize);
+
+
+
+	}
+	clEnqueueReadBuffer(commandQueue,sortedData_d,CL_TRUE,0, DATA_SIZE *  sizeof(MortonCode) , &dataVector[0],0,0,0);
+
+
+	timer.stop();
+	float endTime = timer.interval();
+	float frames = timer.getFramesPerSec();
+
+	std::cout << "Timer : " << endTime << std::endl;
+	std::cout << "Frames : " << frames << std::endl;
+
+	
+
+
+
+	std::cout << "Done" << std::endl;
+}
+
+
+void loadProgramSource(const char** files, size_t length,char** buffer,size_t* sizes) {
+	/* Read each source file (*.cl) and store the contents into a temporary datastore */
+	for(size_t i=0; i < length; i++) {
+		FILE* file = fopen(files[i], "r");
+		if(file == NULL) {
+			perror("Couldn't read the program file");
+			exit(1);
+		}
+		fseek(file, 0, SEEK_END);
+		sizes[i] = ftell(file);
+		rewind(file); // reset the file pointer so that 'fread' reads from the front
+		buffer[i] = (char*)malloc(sizes[i]+1);
+		buffer[i][sizes[i]] = '\0';
+		fread(buffer[i], sizeof(char), sizes[i], file);
+		fclose(file);
+	}
+}
+
+void fillRandom(cl_uint* data, unsigned int length) {
+	cl_uint* iptr = data;
+
+	for(int i = 0 ; i < length; ++i) 
+		iptr[i] = (cl_uint)rand();
+}
+
+void fillRandom(MortonCode* data, unsigned int length) {
+	MortonCode* iptr = data;
+	for(int i = 0 ; i < length; ++i) 
 	{
-		 for(j = 5; j < 9 ; j++)
-		 {
-			processs...
-		 }
+		iptr[i].code = (cl_uint)rand();
+		iptr[i].index = i;
+	}
+}
+
+int main(int argc, char** argv) {
+
+
+	BIN_SIZE = (DATA_SIZE <= BIN_SIZE) ? DATA_SIZE/2 : BIN_SIZE;
+
+	if ((DATA_SIZE / BIN_SIZE)/GROUP_SIZE  <=1)
+	{
+		GROUP_SIZE = (DATA_SIZE / BIN_SIZE)/2;
+		if(GROUP_SIZE == 0)
+		{
+			GROUP_SIZE = 1;
+		}
+
 	}
 
-	in opencl the loop iterations correspond to work items and the loop indices correspond to a work items 
-	global id
- */
+	MortonCode* unsortedData = NULL;
+	MortonCode* dSortedData = NULL;
 
-int main() {
+	cl_platform_id* platforms;
+	cl_device_id device;
+	cl_uint numOfPlatforms;
+	cl_int  error;
+	cl_program program;
+	cl_uint groupSize = GROUP_SIZE;
+	cl_uint numOfGroups = DATA_SIZE / (groupSize * R); 
 
+	unsortedData = (MortonCode*) malloc(DATA_SIZE * sizeof(MortonCode));
+	fillRandom(unsortedData, DATA_SIZE);
 
-   /* Host/device data structures */
-   cl_platform_id platform;
-   cl_device_id device;
-   cl_context context;
-   cl_command_queue queue;
-   cl_int i, err;
-   
-   /* Program/kernel data structures */
-   cl_program program;
-   FILE *program_handle;
-   char *program_buffer, *program_log;
-   size_t program_size, log_size;
-   cl_kernel kernel;
-   
-  
-   cl_mem messageBuffer;
-   size_t work_units_per_kernel;
-
-   /* Identify a platform */
-   err = clGetPlatformIDs(1, &platform, NULL);
-   if(err < 0) {
-      perror("Couldn't find any platforms");
-      exit(1);
-   }
-
-   /* Access a device */
-   err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, 
-         &device, NULL);
-   if(err < 0) {
-      perror("Couldn't find any devices");
-      exit(1);
-   }
-
-   /* Create the context */
-   context = clCreateContext(NULL, 1, &device, NULL, 
-         NULL, &err);
-   if(err < 0) {
-      perror("Couldn't create a context");
-      exit(1);   
-   }
-
-   /* Read program file and place content into buffer
-   when doing multiple programs for each through them all here
-   */
-   program_handle = fopen(PROGRAM_FILE, "r");
-   if(program_handle == NULL) {
-      perror("Couldn't find the program file");
-      exit(1);   
-   }
-   fseek(program_handle, 0, SEEK_END);
-   program_size = ftell(program_handle);
-   rewind(program_handle);
-   program_buffer = (char*)malloc(program_size + 1);
-   program_buffer[program_size] = '\0';
-   fread(program_buffer, sizeof(char), program_size, program_handle);
-   fclose(program_handle);
-   //end
-
-   /* Create program from file */
-   program = clCreateProgramWithSource(context, 1, 
-      (const char**)&program_buffer, &program_size, &err);
-   if(err < 0) {
-      perror("Couldn't create the program");
-      exit(1);   
-   }
-   free(program_buffer);
-
-   const char options[] = "-cl-std=CL1.1 -cl-mad-enable -Werror";
-
-   /* Build program */
-   err = clBuildProgram(program, 0, NULL, 
-	   options,//compiler options go here see page 32
-	   NULL, NULL);
-   if(err < 0) {
-
-      /* Find size of log and print to std output */
-	   //different build statuses see page 34
-      clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 
-            0, NULL, &log_size);
-      program_log = (char*) malloc(log_size + 1);
-      program_log[log_size] = '\0';
-      clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 
-            log_size + 1, program_log, NULL);
-      printf("%s\n", program_log);
-      free(program_log);
-      exit(1);
-   }
+	dSortedData = (MortonCode*) malloc(DATA_SIZE * sizeof(MortonCode));
+	memset(dSortedData, 0, DATA_SIZE * sizeof(cl_uint));
 
 
-   /* Create kernel for the mat_vec_mult function */
-   kernel = clCreateKernel(program, KERNEL_FUNC, &err);
-   if(err < 0) {
-      perror("Couldn't create the kernel");
-      exit(1);   
-   }
-   
-   cl_mem vectorBuffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(int) * 4, NULL, &err);
-
-   if(err < 0) {
-      perror("Couldn't create a buffer object");
-      exit(1);   
-   }      
-
-
-   	cl_bool imageSupport = CL_FALSE;
-	clGetDeviceInfo(device, CL_DEVICE_IMAGE_SUPPORT, sizeof(cl_bool), &imageSupport, NULL);
-
-	if(imageSupport != CL_TRUE)
-	{
-		cout << "OpenCL doesn't support images" << endl;
-	}
-	else
-	{
-		cout << "Supports Images YAY!!!!!!!";
+	//Get the number of platforms
+	//Remember that for each vendor's SDK installed on the computer,
+	//the number of available platform also increased.
+	error = clGetPlatformIDs(0, NULL, &numOfPlatforms);
+	if(error != CL_SUCCESS) {
+		perror("Unable to find any OpenCL platforms");
+		exit(1);
 	}
 
-   clSetKernelArg(kernel,0 , sizeof(cl_mem), &vectorBuffer);
+	platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * numOfPlatforms);
+	printf("Number of OpenCL platforms found: %d\n", numOfPlatforms);
 
-   if(err < 0) {
-      perror("Couldn't set the kernel argument");
-      exit(1);   
-   }         
+	error = clGetPlatformIDs(numOfPlatforms, platforms, NULL);
+	if(error != CL_SUCCESS) {
+		perror("Unable to find any OpenCL platforms");
+		exit(1);
+	}
+	// Search for a GPU device through the installed platforms
+	// Build a OpenCL program and do not run it.
+
+	for(cl_int i = 0; i < numOfPlatforms; i++ ) 
+	{
+		// Get the GPU device
+		error = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+
+		if(error != CL_SUCCESS) {
+			perror("Can't locate a OpenCL compliant device i.e. GPU");
+			exit(1);
+		}
+		// Create a context 
+		context = clCreateContext(NULL, 1, &device, NULL, NULL, &error);
+		if(error != CL_SUCCESS) {
+			perror("Can't create a valid OpenCL context");
+			exit(1);
+		}
+
+		// Load the two source files into temporary datastores
+		const char *file_names[] = {"RadixSort.cl"};
+		const int NUMBER_OF_FILES = 1;
+		char* buffer[NUMBER_OF_FILES];
+		size_t sizes[NUMBER_OF_FILES];
+		loadProgramSource(file_names, NUMBER_OF_FILES, buffer, sizes);
+
+		// Create the OpenCL program object 
+		program = clCreateProgramWithSource(context, NUMBER_OF_FILES, (const char**)buffer, sizes, &error);
+		if(error != CL_SUCCESS) {
+			perror("Can't create the OpenCL program object");
+			exit(1);
+		}
+		// Build OpenCL program object and dump the error message, if any 
+		char *program_log;
+		const char options[] = "";
+		size_t log_size;
+
+		error = clBuildProgram(program, 1, &device, options, NULL, NULL);
+		if(error != CL_SUCCESS) {
+			// If there's an error whilst building the program, dump the log
+			clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+			program_log = (char*) malloc(log_size+1);
+			program_log[log_size] = '\0';
+			clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
+				log_size+1, program_log, NULL);
+			printf("\n=== ERROR ===\n\n%s\n=============\n", program_log);
+			free(program_log);
+			exit(1);
+		}
+
+		// Queue is created with profiling enabled 
+		cl_command_queue_properties props;
+		props |= CL_QUEUE_PROFILING_ENABLE;
+
+		commandQueue = clCreateCommandQueue(context, device, 0, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to create command queue");
+
+		unsortedData_d     = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, sizeof(MortonCode) * DATA_SIZE, unsortedData, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate unsortedData_d");
+		histogram_d        = clCreateBuffer(context, CL_MEM_READ_WRITE, numOfGroups * groupSize * R * sizeof(cl_uint), NULL, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate histogram_d");
+		scannedHistogram_d = clCreateBuffer(context, CL_MEM_READ_WRITE, numOfGroups * groupSize * R * sizeof(cl_uint), NULL, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate scannedHistogram_d");
+		sortedData_d       = clCreateBuffer(context, CL_MEM_WRITE_ONLY, DATA_SIZE * sizeof(MortonCode), NULL, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate sortedData_d");
+		sum_in_d           = clCreateBuffer(context, CL_MEM_READ_WRITE, (DATA_SIZE/groupSize) * sizeof(cl_uint), NULL, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate sum_in_d");
+		sum_out_d          = clCreateBuffer(context, CL_MEM_READ_WRITE, (DATA_SIZE/groupSize) * sizeof(cl_uint), NULL, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate sum_out_d");
+		summary_in_d       = clCreateBuffer(context, CL_MEM_READ_WRITE, R * sizeof(cl_uint), NULL, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate summary_in_d");
+		summary_out_d      = clCreateBuffer(context, CL_MEM_READ_WRITE, R * sizeof(cl_uint), NULL, &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate summary_out_d");
+
+		histogramKernel = clCreateKernel(program, "computeHistogram", &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create histogram kernel");
+		permuteKernel   = clCreateKernel(program, "rankNPermute", &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create permute kernel");
+		unifiedBlockScanKernel  = clCreateKernel(program, "unifiedBlockScan", &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create unifiedBlockScan kernel");
+		blockScanKernel  = clCreateKernel(program, "blockScan", &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create blockScan kernel");
+		prefixSumKernel = clCreateKernel(program, "blockPrefixSum", &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create compute block prefix sum kernel");
+		blockAddKernel  = clCreateKernel(program, "blockAdd", &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create block addition kernel");
+		mergePrefixSumsKernel    = clCreateKernel(program, "mergePrefixSums", &error);
+		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create fix offset kernel");
+
+		printf("elementCount: %u, numOfGroups: %u, groupSize: %u\n", DATA_SIZE, 1, groupSize);
+		runKernels( dSortedData, numOfGroups, groupSize);
 
 
-   /* Create a CL command queue for the device*/
-   //CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE maybe useful
-   queue = clCreateCommandQueue(context, device, 0, &err);
-   if(err < 0) {
-      perror("Couldn't create the command queue");
-      exit(1);   
-   }
+		// Clean up 
+		for(int j=0; j< NUMBER_OF_FILES; j++) { free(buffer[j]); }
 
-   /* Enqueue the command queue to the device */
-   work_units_per_kernel = 4; /* 4 work-units per kernel */ 
+		clReleaseMemObject(unsortedData_d);
+		clReleaseMemObject(histogram_d);
+		clReleaseMemObject(scannedHistogram_d);
+		clReleaseMemObject(sortedData_d);
+		clReleaseMemObject(sum_in_d);
+		clReleaseMemObject(sum_out_d);
+		clReleaseMemObject(summary_out_d);
+		clReleaseMemObject(summary_in_d);
+		clReleaseKernel(histogramKernel);
+		clReleaseKernel(permuteKernel);
+		clReleaseKernel(unifiedBlockScanKernel);
+		clReleaseKernel(blockScanKernel);
+		clReleaseKernel(prefixSumKernel);
+		clReleaseKernel(blockAddKernel);
+		clReleaseKernel(mergePrefixSumsKernel);
 
+		// Verification Checks
+		/*   radixSortCPU(unsortedData, hSortedData);
+		for(int k = 0, acc = 0; k < DATA_SIZE; k++) { 
+		if (hSortedData[k] == dSortedData[k]) acc++;
+		if ((k+1) == DATA_SIZE) {
+		if (acc == DATA_SIZE) printf("Passed:%u!\n", acc); else printf("Failed:%u!\n", acc);
+		}
+		}*/
 
-   
-   err = clEnqueueNDRangeKernel(queue, kernel, 1, // the number of elements in a globalId
+		free(unsortedData);
+		free(dSortedData);
+		// free(hSortedData);
 
-	   /*ie get_global_id(0) get_global_id(1) ... 2 dimensions */
-	   
-	   NULL, &work_units_per_kernel, 
-      NULL, 0, NULL, NULL);
-   if(err < 0) {
-      perror("Couldn't enqueue the kernel execution command");
-      exit(1);   
-   }
-   cl_uint  maxDiminsions;
-   cl_uint preferredVectorWidth;
-   cl_uint preFloat;
-   cl_ulong size;
+		system("pause");
 
-   // Device memory stats
-   cout << "Device Memory Stats..." << endl;
-   cout << "----------------------------------" << endl;
-   clGetDeviceInfo(device,CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,sizeof(maxDiminsions),&maxDiminsions,NULL);
-   cout <<"Max Dimensions : " << maxDiminsions << endl<<endl;
-   clGetDeviceInfo(device,CL_DEVICE_GLOBAL_MEM_SIZE,sizeof(size),&size,NULL);
-   cout <<"Global Memory Size : " << size << endl<<endl;
-   clGetDeviceInfo(device,CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,sizeof(size),&size,NULL);
-   cout <<"Global Cache Memory Size : " << size << endl<<endl;
-   clGetDeviceInfo(device,CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE,sizeof(size),&size,NULL);
-   cout <<"Constant Buffer Size : " << size << endl<<endl;
-   clGetDeviceInfo(device,CL_DEVICE_LOCAL_MEM_SIZE,sizeof(size),&size,NULL);
-   cout <<"Local Memory Size: " << size << endl<<endl;
+	}
 
-   int result[4];
-   err = clEnqueueReadBuffer(queue,vectorBuffer, CL_TRUE,0 ,sizeof(result),&result,0,NULL,NULL);
-
-   if(err < 0) {
-      perror("Couldn't enqueue the read buffer command");
-      exit(1);   
-   }
-   cout << "Result : ";
-   for (int i = 0; i < 4; i++)
-   {
-	   cout << result[i] << ", ";
-   }
-   cout <<endl;
-
-
-
-   clReleaseMemObject(vectorBuffer);
-   clReleaseKernel(kernel);
-   clReleaseCommandQueue(queue);
-   clReleaseProgram(program);
-   clReleaseContext(context);
-
-
-   system("pause");
-   return 0;
 }
 

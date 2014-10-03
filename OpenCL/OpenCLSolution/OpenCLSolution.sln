@@ -18,6 +18,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Engine", "Engine\Engine.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Mutex", "Mutex\Mutex.vcxproj", "{403D23ED-18CF-459A-96A6-839E15959E62}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RadixSort", "RadixSort\RadixSort.vcxproj", "{2935322A-94C3-4854-AA4C-594D0884CC39}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Mixed Platforms = Debug|Mixed Platforms
@@ -100,6 +102,16 @@ Global
 		{403D23ED-18CF-459A-96A6-839E15959E62}.Release|Win32.ActiveCfg = Release|Win32
 		{403D23ED-18CF-459A-96A6-839E15959E62}.Release|Win32.Build.0 = Release|Win32
 		{403D23ED-18CF-459A-96A6-839E15959E62}.Release|x64.ActiveCfg = Release|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Debug|Win32.Build.0 = Debug|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Debug|x64.ActiveCfg = Debug|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Release|Win32.ActiveCfg = Release|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Release|Win32.Build.0 = Release|Win32
+		{2935322A-94C3-4854-AA4C-594D0884CC39}.Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
