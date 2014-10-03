@@ -5,9 +5,9 @@ CL_DEVICE_MAX_WORK_ITEM_SIZES - 1024, 1024, 64
 */
 const cl_float RenderWindow::MIN = 10000000.0f;
 const cl_float RenderWindow::MAX = -10000000.0f;
-const cl_uint RenderWindow::NUMBER_OF_SPHERES = 2000;
+const cl_uint RenderWindow::NUMBER_OF_SPHERES = 10000;
 
-RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0,0,300), glm::vec3(0,0,0))
+RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0,0,300), glm::vec3(0,0,0)), radixGroupSize(64), radixBinSize(256),radixDataSize(0)
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
@@ -51,6 +51,195 @@ void RenderWindow::addObject(Object object)
 	objects.push_back(object);
 	numberOfObjects++;
 }
+
+
+
+void RenderWindow::computeRadixGroups()
+{
+	radixBinSize = (radixDataSize <= radixBinSize) ? radixDataSize/2 : radixBinSize;
+
+	if ((radixDataSize / radixBinSize)/radixGroupSize  <=1)
+	{
+		radixGroupSize = (radixDataSize / radixBinSize)/2;
+		if(radixGroupSize == 0)
+		{
+			radixGroupSize = 1;
+		}
+
+	}
+}
+
+void  RenderWindow::computeHistogram(int currentByte) {
+	cl_int status;
+	size_t globalThreads = radixDataSize;
+	size_t localThreads  = radixBinSize;
+
+
+	status = clSetKernelArg(histogramKernel, 0, sizeof(cl_mem), (void*)&unsortedDataMem);
+	status = clSetKernelArg(histogramKernel, 1, sizeof(cl_mem), (void*)&histogramMem);
+	status = clSetKernelArg(histogramKernel, 2, sizeof(cl_int), (void*)&currentByte);
+	status = clSetKernelArg(histogramKernel, 3, sizeof(cl_int) * radixBinSize, NULL); 
+	status = clEnqueueNDRangeKernel(
+		queue, 
+		histogramKernel,
+		1,
+		NULL,
+		&globalThreads,
+		&localThreads,
+		0,
+		NULL,NULL);
+}
+
+void  RenderWindow::computeRankingNPermutations(int currentByte, size_t groupSize) {
+	cl_int status;
+
+	size_t globalThreads = radixDataSize/R;
+	size_t localThreads  = groupSize;
+
+	status = clSetKernelArg(permuteKernel, 0, sizeof(cl_mem), (void*)&unsortedDataMem);
+	status = clSetKernelArg(permuteKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);
+	status = clSetKernelArg(permuteKernel, 2, sizeof(cl_int), (void*)&currentByte);
+	status = clSetKernelArg(permuteKernel, 3, groupSize * R * sizeof(cl_ushort), NULL);
+	status = clSetKernelArg(permuteKernel, 4, sizeof(cl_mem), (void*)&sortedDataMem);
+
+	status = clEnqueueNDRangeKernel(queue, permuteKernel, 1, NULL, &globalThreads, &localThreads, 0, NULL, NULL);
+	status = clEnqueueCopyBuffer(queue, sortedDataMem, unsortedDataMem, 0, 0, radixDataSize * sizeof(MortonNode), 0, NULL, NULL);
+}
+
+void  RenderWindow::computeBlockScans() {
+	cl_int status;
+
+	size_t numberOfGroups = radixDataSize / radixBinSize;
+	size_t globalThreads[2] = {numberOfGroups, R};
+	size_t localThreads[2]  = {radixGroupSize, 1};
+	cl_uint groupSize = radixGroupSize;
+
+	status = clSetKernelArg(blockScanKernel, 0, sizeof(cl_mem), (void*)&scannedHistogramMem);
+	status = clSetKernelArg(blockScanKernel, 1, sizeof(cl_mem), (void*)&histogramMem);
+	status = clSetKernelArg(blockScanKernel, 2, radixGroupSize * sizeof(cl_uint), NULL);
+	status = clSetKernelArg(blockScanKernel, 3, sizeof(cl_uint), &groupSize); 
+	status = clSetKernelArg(blockScanKernel, 4, sizeof(cl_mem), &sumInMem);
+	
+
+	status = clEnqueueNDRangeKernel(
+		queue,
+		blockScanKernel,
+		2,
+		NULL,
+		globalThreads,
+		localThreads,
+		0, 
+		NULL,
+		NULL);
+	
+
+	
+	
+
+	if(numberOfGroups/radixGroupSize != 1) {
+		size_t globalThreadsPrefix[2] = {numberOfGroups/radixGroupSize, R};
+		status = clSetKernelArg(prefixSumKernel, 0, sizeof(cl_mem), (void*)&sumOutMem);
+		
+		status = clSetKernelArg(prefixSumKernel, 1, sizeof(cl_mem), (void*)&sumInMem);
+		
+		status = clSetKernelArg(prefixSumKernel, 2, sizeof(cl_mem), (void*)&summaryInMem);
+		
+		cl_uint stride = (cl_uint)numberOfGroups/radixGroupSize;
+		status = clSetKernelArg(prefixSumKernel, 3, sizeof(cl_uint), (void*)&stride);
+		
+		status = clEnqueueNDRangeKernel(
+			queue,
+			prefixSumKernel,
+			2,
+			NULL,
+			globalThreadsPrefix,
+			NULL,
+			0,
+			NULL,
+			NULL);
+		
+		
+
+		size_t globalThreadsAdd[2] = {numberOfGroups, R};
+		size_t localThreadsAdd[2]  = {radixGroupSize, 1};
+		status = clSetKernelArg(blockAddKernel, 0, sizeof(cl_mem), (void*)&sumOutMem);  
+		
+		status = clSetKernelArg(blockAddKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);  
+		
+		status = clSetKernelArg(blockAddKernel, 2, sizeof(cl_uint), (void*)&stride);  
+		
+		status = clEnqueueNDRangeKernel(
+			queue,
+			blockAddKernel,
+			2,
+			NULL,
+			globalThreadsAdd,
+			localThreadsAdd,
+			0,
+			NULL,
+			NULL);
+		
+
+		size_t globalThreadsScan[1] = {R};
+		size_t localThreadsScan[1] = {R};
+		status = clSetKernelArg(unifiedBlockScanKernel, 0, sizeof(cl_mem), (void*)&summaryOutMem);
+		
+		if(numberOfGroups/radixGroupSize != 1) 
+			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&summaryInMem); 
+		else
+			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&sumInMem); 
+		
+
+		status = clSetKernelArg(unifiedBlockScanKernel, 2, R * sizeof(cl_uint), NULL);
+		
+		groupSize = R;
+		status = clSetKernelArg(unifiedBlockScanKernel, 3, sizeof(cl_uint), (void*)&groupSize); 
+		
+		status = clEnqueueNDRangeKernel(
+			queue,
+			unifiedBlockScanKernel,
+			1,
+			NULL,
+			globalThreadsScan,
+			localThreadsScan,
+			0, 
+			NULL, 
+			NULL);
+		
+
+		
+
+		size_t globalThreadsOffset[2] = {numberOfGroups, R};
+		status = clSetKernelArg(mergePrefixSumsKernel, 0, sizeof(cl_mem), (void*)&summaryOutMem);
+		
+		status = clSetKernelArg(mergePrefixSumsKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);
+		
+		status = clEnqueueNDRangeKernel(queue, mergePrefixSumsKernel, 2, NULL, globalThreadsOffset, NULL, 0, NULL, NULL);
+	
+	}
+}
+
+
+void RenderWindow::radixSort() 
+{
+	computeRadixGroups();
+	int size = radixDataSize;
+
+	std::vector<MortonNode> sortedMortonCodes;
+	sortedMortonCodes.resize(size);
+
+	for(int currentByte = 0; currentByte < sizeof(cl_uint) * bitsbyte ; currentByte += bitsbyte) {
+		computeHistogram(currentByte);
+		computeBlockScans();
+		computeRankingNPermutations(currentByte, radixGroupSize);
+
+
+
+	}
+	clEnqueueReadBuffer(queue,sortedDataMem,CL_TRUE,0, radixDataSize *  sizeof(MortonNode) , &sortedMortonCodes[0],0,0,0);
+}
+
+
 void RenderWindow::construct()
 {
 	setMinimumSize(640,480);
@@ -458,11 +647,12 @@ void RenderWindow::initializeProgram()
 	initializeMortonCodesKernel = clCreateKernel(program,"initializeMortonCodes", &err);
 	sortMortonKernel = clCreateKernel(program,"sortMortonCodes", &err);
 }
-void RenderWindow::initializeSceneBBox()
+
+void RenderWindow::initializeMemory()
 {
-	QImage image(windowWidth,windowHeight,QImage::Format_RGBA8888);
-	char * buffer = new char[windowWidth * windowHeight * 4];
-	memcpy( buffer,image.bits(), windowWidth* windowHeight * 4);
+	//	QImage image(windowWidth,windowHeight,QImage::Format_RGBA8888);
+	//char * buffer = new char[windowWidth * windowHeight * 4];
+	//memcpy( buffer,image.bits(), windowWidth* windowHeight * 4);
 
 	cl_image_format clImageFormat;
 	clImageFormat.image_channel_order = CL_RGBA;
@@ -476,7 +666,7 @@ void RenderWindow::initializeSceneBBox()
 		exit(-1);
 	}
 
-	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light)* objects.size(), &lights[0],&err);
+	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light)* lights.size(), &lights[0],&err);
 	if(err != CL_SUCCESS)
 	{
 		cout << "Error creating Lights Object" << endl;
@@ -484,7 +674,7 @@ void RenderWindow::initializeSceneBBox()
 	}
 
 
-	clImage = clCreateImage2D(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, & clImageFormat, windowWidth,windowHeight,0,buffer,&err);
+	clImage = clCreateImage2D(context, CL_MEM_READ_ONLY , & clImageFormat, windowWidth,windowHeight,0,NULL,&err);
 
 	if(err != CL_SUCCESS)
 	{
@@ -522,6 +712,13 @@ void RenderWindow::initializeSceneBBox()
 		perror("Couldn't create the kernel");
 		exit(1);   
 	}
+
+	//delete [] buffer;
+
+}
+
+void RenderWindow::initializeSceneBBox()
+{
 
 
 	cl_int lengthOfObjects = objects.size();
@@ -562,7 +759,6 @@ void RenderWindow::initializeSceneBBox()
 	clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
 
 
-	delete [] buffer;
 }
 void RenderWindow::initializeCells()
 {
@@ -860,19 +1056,14 @@ void RenderWindow::initializeCL()
 {
 
 	initializeProgram();
+	initializeMemory();
 	profileTimer.start();
 	initializeSceneBBox();
-	cout << "SceneBox : " << (profileTimer.elapsed()/1000.0f) << endl;
+	float time = (profileTimer.elapsed()/1000.0f);
+	cout << "SceneBox : " << time  << endl;
 
 	timer.start();
-	//	treeManager = new OctreeManager(Octree(box.min + (glm::abs(box.max - box.min)/2.0f),box, 0));
-	//	treeManager->insert(objects);
-	float time = timer.elapsed()/ 1000.0f;
-
-
-
-
-	//delete treeManager;
+	time = timer.elapsed()/ 1000.0f;
 
 	profileTimer.start();
 	initializeCells();

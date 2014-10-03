@@ -36,23 +36,23 @@ class RenderWindow :public QWidget// public OpenGLWindow
 public:
 	RenderWindow(void);
 	~RenderWindow(void);
-	
+
 	void resizeEvent(QResizeEvent * e)override;
 	void addLight(Light light);
 	void addObject(Object sphere);
 
-	
-//	void initialize()override;
-//	void render()override;
+
+	//	void initialize()override;
+	//	void render()override;
 
 private:
-//	QOpenGLFramebufferObject * frameBuffer;
-//	GLuint frameBufferId;
-//	void createFrameBuffer();
+	//	QOpenGLFramebufferObject * frameBuffer;
+	//	GLuint frameBufferId;
+	//	void createFrameBuffer();
 
-
+	void initializeMemory();
 	Camera camera;
-	
+
 	cl_int lengthOfObjects; 
 	void updateDrawScene();
 	void updateBBox();
@@ -61,14 +61,18 @@ private:
 	static const cl_float MIN;
 	static const cl_float MAX;
 	static const cl_uint NUMBER_OF_SPHERES;
-	
+	static const cl_uint bitsbyte = 8u;
+	static const  cl_uint R = (1 << bitsbyte);
+	static const  cl_uint R_MASK = 0xFFu;
+
+
 	cl_int nx,ny,nz , numCells, nextPowerOfCells, numberOfCellObjects;
 	cl_float wx,wy,wz, s;
 	const cl_float multi;
 	QImage readImage;
 
 	QElapsedTimer profileTimer;
-	
+
 	//vectors
 	vector<cl_int> cellIndices;
 	vector<cl_int> objectIndices;
@@ -114,7 +118,7 @@ private:
 	FILE *program_handle;
 	char *program_log;
 	size_t  log_size;
-	
+
 
 
 	cl_kernel sceneBBoxKernel;
@@ -123,6 +127,38 @@ private:
 	cl_kernel sortMortonKernel;
 	cl_kernel drawSceneKernel;
 	cl_kernel findObjectCellsKernel;
+
+
+	//radix sort kernels
+	cl_kernel histogramKernel;
+	cl_kernel permuteKernel  ;
+	cl_kernel unifiedBlockScanKernel ;
+	cl_kernel blockScanKernel ;
+	cl_kernel prefixSumKernel;
+	cl_kernel blockAddKernel ;
+	cl_kernel mergePrefixSumsKernel;
+
+	//radix sort mem
+	cl_mem unsortedDataMem    ;
+	cl_mem histogramMem       ;
+	cl_mem scannedHistogramMem;
+	cl_mem sortedDataMem      ;
+	cl_mem sumInMem          ;
+	cl_mem sumOutMem         ;
+	cl_mem summaryInMem      ;
+	cl_mem summaryOutMem     ;
+
+	//members...
+	cl_uint radixGroupSize;// = 64;     
+	cl_uint radixBinSize;//  = 256;
+	cl_uint radixDataSize;// =  (1<<14);
+
+	//radix methods
+	void computeRadixGroups();
+	void computeHistogram(int currentByte);
+	void computeRankingNPermutations(int currentByte, size_t groupSize);
+	void computeBlockScans();
+	void radixSort();
 
 	//update release mem
 	cl_mem objectIndicesMem;
@@ -147,7 +183,7 @@ private:
 	cl_int numberOfObjects;
 	size_t globalWorkSize[2];
 	size_t initCellWorkSize[2];
-	
+
 	size_t sceneBBoxGlobalWorkSize;
 
 	size_t origin[3];
@@ -169,9 +205,9 @@ private:
 		return pow(2, ceil(log(number)/log(2)));
 	}
 
-private slots:
-	void updateScene();
-	
-	
+	private slots:
+		void updateScene();
+
+
 };
 

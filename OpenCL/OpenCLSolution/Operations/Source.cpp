@@ -22,15 +22,15 @@
 
 
 
-struct MortonCode
+struct MortonNode
 {
 	cl_uint code;
 	cl_uint index;
 };
 
-static unsigned int GROUP_SIZE = 64;                // ATI HD7870 has 20 parallel compute units, !!!wavefront programming!!!
-static unsigned int  BIN_SIZE  = 256;
-static unsigned int DATA_SIZE =  (1<<17);
+static unsigned int radixGroupSize = 64;                // ATI HD7870 has 20 parallel compute units, !!!wavefront programming!!!
+static unsigned int  radixBinSize  = 256;
+static unsigned int radixDataSize =  (1<<16);
 
 cl_kernel histogramKernel;
 cl_kernel permuteKernel  ;
@@ -38,130 +38,80 @@ cl_kernel unifiedBlockScanKernel ;
 cl_kernel blockScanKernel ;
 cl_kernel prefixSumKernel;
 cl_kernel blockAddKernel ;
-cl_kernel mergePrefixSumsKernel   ;
-cl_mem unsortedData_d    ;
-cl_mem histogram_d       ;
-cl_mem scannedHistogram_d;
-cl_mem sortedData_d      ;
-cl_mem sum_in_d          ;
-cl_mem sum_out_d         ;
-cl_mem summary_in_d      ;
-cl_mem summary_out_d     ;
-cl_command_queue commandQueue;
+cl_kernel mergePrefixSumsKernel;
+cl_mem unsortedDataMem    ;
+cl_mem histogramMem       ;
+cl_mem scannedHistogramMem;
+cl_mem sortedDataMem      ;
+cl_mem sumInMem          ;
+cl_mem sumOutMem         ;
+cl_mem summaryInMem      ;
+cl_mem summaryOutMem     ;
+cl_command_queue queue;
 cl_context context ;
 
-int
-	waitAndReleaseDevice(cl_event* event) {
-		cl_int status = CL_SUCCESS;
-		cl_int eventStatus = CL_QUEUED;
-		while(eventStatus != CL_COMPLETE) {
-			clGetEventInfo(*event, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &eventStatus, NULL);
-		}
-		status = clReleaseEvent(*event);
-		//CHECK_ERROR(status, CL_SUCCESS, "Failed to release event\n");
-		return 0;
-}
+
 
 static unsigned int bitsbyte  = 8u;
 static unsigned int R (1 << bitsbyte);
 static unsigned int R_MASK  = 0xFFU;
 
-// This is the threaded-historgram which builds histograms
-// and bins them based on a size of 256 or 1<<8
-cl_event execEvt;
 
 
-void computeHistogram(int currByte) {
+void computeHistogram(int currentByte) {
 	cl_int status;
-	size_t globalThreads = DATA_SIZE;
-	size_t localThreads  = BIN_SIZE;
+	size_t globalThreads = radixDataSize;
+	size_t localThreads  = radixBinSize;
 
 
-	status = clSetKernelArg(histogramKernel, 0, sizeof(cl_mem), (void*)&unsortedData_d);
-	//std::cout << status << std::endl;
-	status = clSetKernelArg(histogramKernel, 1, sizeof(cl_mem), (void*)&histogram_d);
-	//std::cout << status << std::endl;
-
-	status = clSetKernelArg(histogramKernel, 2, sizeof(cl_int), (void*)&currByte);
-	//std::cout << status << std::endl;
-
-	status = clSetKernelArg(histogramKernel, 3, sizeof(cl_int) * BIN_SIZE, NULL); 
-	//std::cout << status << std::endl;
-
-
+	status = clSetKernelArg(histogramKernel, 0, sizeof(cl_mem), (void*)&unsortedDataMem);
+	status = clSetKernelArg(histogramKernel, 1, sizeof(cl_mem), (void*)&histogramMem);
+	status = clSetKernelArg(histogramKernel, 2, sizeof(cl_int), (void*)&currentByte);
+	status = clSetKernelArg(histogramKernel, 3, sizeof(cl_int) * radixBinSize, NULL); 
 	status = clEnqueueNDRangeKernel(
-		commandQueue, 
+		queue, 
 		histogramKernel,
 		1,
 		NULL,
 		&globalThreads,
 		&localThreads,
 		0,
-		NULL,&execEvt);
-	clFlush(commandQueue);
-
+		NULL,NULL);
 }
 
-void computeRankingNPermutations(int currByte, size_t groupSize) {
+void computeRankingNPermutations(int currentByte, size_t groupSize) {
 	cl_int status;
-	//  cl_event execEvt;
 
-	size_t globalThreads = DATA_SIZE/R;
+	size_t globalThreads = radixDataSize/R;
 	size_t localThreads  = groupSize;
 
-	status = clSetKernelArg(permuteKernel, 0, sizeof(cl_mem), (void*)&unsortedData_d);
-	//std::cout << status << std::endl;
+	status = clSetKernelArg(permuteKernel, 0, sizeof(cl_mem), (void*)&unsortedDataMem);
+	status = clSetKernelArg(permuteKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);
+	status = clSetKernelArg(permuteKernel, 2, sizeof(cl_int), (void*)&currentByte);
+	status = clSetKernelArg(permuteKernel, 3, groupSize * R * sizeof(cl_ushort), NULL);
+	status = clSetKernelArg(permuteKernel, 4, sizeof(cl_mem), (void*)&sortedDataMem);
 
-	status = clSetKernelArg(permuteKernel, 1, sizeof(cl_mem), (void*)&scannedHistogram_d);
-	//std::cout << status << std::endl;
-	status = clSetKernelArg(permuteKernel, 2, sizeof(cl_int), (void*)&currByte);
-	//std::cout << status << std::endl;
-	status = clSetKernelArg(permuteKernel, 3, groupSize * R * sizeof(cl_ushort), NULL); // shared memory
-	//std::cout << status << std::endl;
-	status = clSetKernelArg(permuteKernel, 4, sizeof(cl_mem), (void*)&sortedData_d);
-	//std::cout << status << std::endl;
-
-
-
-
-	status = clEnqueueNDRangeKernel(commandQueue, permuteKernel, 1, NULL, &globalThreads, &localThreads, 0, NULL, &execEvt);
-	//std::cout << status << std::endl;
-	clFlush(commandQueue);
-	clFinish(commandQueue);
-
-	//waitAndReleaseDevice(&execEvt);
-
-	cl_event copyEvt;
-
-	status = clEnqueueCopyBuffer(commandQueue, sortedData_d, unsortedData_d, 0, 0, DATA_SIZE * sizeof(MortonCode), 0, NULL, &copyEvt);
-	//std::cout << status << std::endl;
-	clFlush(commandQueue);
-	clFinish(commandQueue);
-	//waitAndReleaseDevice(&copyEvt);
+	status = clEnqueueNDRangeKernel(queue, permuteKernel, 1, NULL, &globalThreads, &localThreads, 0, NULL, NULL);
+	status = clEnqueueCopyBuffer(queue, sortedDataMem, unsortedDataMem, 0, 0, radixDataSize * sizeof(MortonNode), 0, NULL, NULL);
 }
 
 void computeBlockScans() {
 	cl_int status;
 
-	size_t numOfGroups = DATA_SIZE / BIN_SIZE;
-	size_t globalThreads[2] = {numOfGroups, R};
-	size_t localThreads[2]  = {GROUP_SIZE, 1};
-	cl_uint groupSize = GROUP_SIZE;
+	size_t numberOfGroups = radixDataSize / radixBinSize;
+	size_t globalThreads[2] = {numberOfGroups, R};
+	size_t localThreads[2]  = {radixGroupSize, 1};
+	cl_uint groupSize = radixGroupSize;
 
-	status = clSetKernelArg(blockScanKernel, 0, sizeof(cl_mem), (void*)&scannedHistogram_d);
-	//std::cout << status << std::endl;
-	status = clSetKernelArg(blockScanKernel, 1, sizeof(cl_mem), (void*)&histogram_d);
-	//std::cout << status << std::endl;
-	status = clSetKernelArg(blockScanKernel, 2, GROUP_SIZE * sizeof(cl_uint), NULL);
-	//std::cout << status << std::endl;
+	status = clSetKernelArg(blockScanKernel, 0, sizeof(cl_mem), (void*)&scannedHistogramMem);
+	status = clSetKernelArg(blockScanKernel, 1, sizeof(cl_mem), (void*)&histogramMem);
+	status = clSetKernelArg(blockScanKernel, 2, radixGroupSize * sizeof(cl_uint), NULL);
 	status = clSetKernelArg(blockScanKernel, 3, sizeof(cl_uint), &groupSize); 
-	//std::cout << status << std::endl;
-	status = clSetKernelArg(blockScanKernel, 4, sizeof(cl_mem), &sum_in_d);
-	//std::cout << status << std::endl;
+	status = clSetKernelArg(blockScanKernel, 4, sizeof(cl_mem), &sumInMem);
+	
 
-	// cl_event execEvt;
 	status = clEnqueueNDRangeKernel(
-		commandQueue,
+		queue,
 		blockScanKernel,
 		2,
 		NULL,
@@ -169,44 +119,25 @@ void computeBlockScans() {
 		localThreads,
 		0, 
 		NULL,
-		&execEvt);
-	//std::cout << status << std::endl;
+		NULL);
+	
 
-	clFlush(commandQueue);
-	clFinish(commandQueue);
+	
+	
 
-
-
-	//	std::vector<cl_uint> sums;
-	//	sums.resize(DATA_SIZE);
-
-	//	clEnqueueReadBuffer(commandQueue,sum_in_d,CL_TRUE,0, DATA_SIZE * sizeof(cl_uint) , &sums[0],0,0,0);
-
-
-	//	std::vector<cl_uint> histogram;
-	//histogram.resize( numOfGroups * groupSize * R);
-	//
-
-	//clEnqueueReadBuffer(commandQueue,histogram_d,CL_TRUE,0, DATA_SIZE * sizeof(cl_uint) , &histogram[0],0,0,0);
-	//
-
-	//waitAndReleaseDevice(&execEvt);
-
-	// If there is only 1 workgroup, we will skip the block-addition and prefix-sum kernel
-	if(numOfGroups/GROUP_SIZE != 1) {
-		size_t globalThreadsPrefix[2] = {numOfGroups/GROUP_SIZE, R};
-		status = clSetKernelArg(prefixSumKernel, 0, sizeof(cl_mem), (void*)&sum_out_d);
-		//std::cout << status << std::endl;
-		status = clSetKernelArg(prefixSumKernel, 1, sizeof(cl_mem), (void*)&sum_in_d);
-		//std::cout << status << std::endl;
-		status = clSetKernelArg(prefixSumKernel, 2, sizeof(cl_mem), (void*)&summary_in_d);
-		//std::cout << status << std::endl;
-		cl_uint stride = (cl_uint)numOfGroups/GROUP_SIZE;
+	if(numberOfGroups/radixGroupSize != 1) {
+		size_t globalThreadsPrefix[2] = {numberOfGroups/radixGroupSize, R};
+		status = clSetKernelArg(prefixSumKernel, 0, sizeof(cl_mem), (void*)&sumOutMem);
+		
+		status = clSetKernelArg(prefixSumKernel, 1, sizeof(cl_mem), (void*)&sumInMem);
+		
+		status = clSetKernelArg(prefixSumKernel, 2, sizeof(cl_mem), (void*)&summaryInMem);
+		
+		cl_uint stride = (cl_uint)numberOfGroups/radixGroupSize;
 		status = clSetKernelArg(prefixSumKernel, 3, sizeof(cl_uint), (void*)&stride);
-		//std::cout << status << std::endl;
-		cl_event prefixSumEvt;
+		
 		status = clEnqueueNDRangeKernel(
-			commandQueue,
+			queue,
 			prefixSumKernel,
 			2,
 			NULL,
@@ -214,24 +145,20 @@ void computeBlockScans() {
 			NULL,
 			0,
 			NULL,
-			&prefixSumEvt);
-		clFlush(commandQueue);
-		clFinish(commandQueue);
-		//waitAndReleaseDevice(&prefixSumEvt);
-		//std::cout << status << std::endl;
+			NULL);
+		
+		
 
-		// Run block-addition kernel
-		cl_event execEvt2;
-		size_t globalThreadsAdd[2] = {numOfGroups, R};
-		size_t localThreadsAdd[2]  = {GROUP_SIZE, 1};
-		status = clSetKernelArg(blockAddKernel, 0, sizeof(cl_mem), (void*)&sum_out_d);  
-		//std::cout << status << std::endl;
-		status = clSetKernelArg(blockAddKernel, 1, sizeof(cl_mem), (void*)&scannedHistogram_d);  
-		//std::cout << status << std::endl;
+		size_t globalThreadsAdd[2] = {numberOfGroups, R};
+		size_t localThreadsAdd[2]  = {radixGroupSize, 1};
+		status = clSetKernelArg(blockAddKernel, 0, sizeof(cl_mem), (void*)&sumOutMem);  
+		
+		status = clSetKernelArg(blockAddKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);  
+		
 		status = clSetKernelArg(blockAddKernel, 2, sizeof(cl_uint), (void*)&stride);  
-		//std::cout << status << std::endl;
+		
 		status = clEnqueueNDRangeKernel(
-			commandQueue,
+			queue,
 			blockAddKernel,
 			2,
 			NULL,
@@ -239,35 +166,26 @@ void computeBlockScans() {
 			localThreadsAdd,
 			0,
 			NULL,
-			&execEvt2);
-		clFlush(commandQueue);
-		//std::cout << status << std::endl;
+			NULL);
+		
 
-		//waitAndReleaseDevice(&execEvt2);
-		//clFinish(commandQueue);
-		clFinish(commandQueue);
-
-
-		// Run parallel array scan since we have GROUP_SIZE values which are summarized from each row
-		// and we accumulate them
 		size_t globalThreadsScan[1] = {R};
 		size_t localThreadsScan[1] = {R};
-		status = clSetKernelArg(unifiedBlockScanKernel, 0, sizeof(cl_mem), (void*)&summary_out_d);
-		//std::cout << status << std::endl;
-		if(numOfGroups/GROUP_SIZE != 1) 
-			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&summary_in_d); 
+		status = clSetKernelArg(unifiedBlockScanKernel, 0, sizeof(cl_mem), (void*)&summaryOutMem);
+		
+		if(numberOfGroups/radixGroupSize != 1) 
+			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&summaryInMem); 
 		else
-			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&sum_in_d); 
-		//std::cout << status << std::endl;
+			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&sumInMem); 
+		
 
-		status = clSetKernelArg(unifiedBlockScanKernel, 2, R * sizeof(cl_uint), NULL);  // shared memory
-		//std::cout << status << std::endl;
+		status = clSetKernelArg(unifiedBlockScanKernel, 2, R * sizeof(cl_uint), NULL);
+		
 		groupSize = R;
 		status = clSetKernelArg(unifiedBlockScanKernel, 3, sizeof(cl_uint), (void*)&groupSize); 
-		//std::cout << status << std::endl;
-		cl_event execEvt3;
+		
 		status = clEnqueueNDRangeKernel(
-			commandQueue,
+			queue,
 			unifiedBlockScanKernel,
 			1,
 			NULL,
@@ -276,50 +194,71 @@ void computeBlockScans() {
 			0, 
 			NULL, 
 			NULL);
-		//std::cout << status << std::endl;
+		
 
-		//clFlush(commandQueue);
-		//waitAndReleaseDevice(&execEvt3);
-		//clFinish(commandQueue);
+		
 
-		cl_event execEvt4;
-		size_t globalThreadsOffset[2] = {numOfGroups, R};
-		status = clSetKernelArg(mergePrefixSumsKernel, 0, sizeof(cl_mem), (void*)&summary_out_d);
-		//std::cout << status << std::endl;
-		status = clSetKernelArg(mergePrefixSumsKernel, 1, sizeof(cl_mem), (void*)&scannedHistogram_d);
-		//std::cout << status << std::endl;
-		status = clEnqueueNDRangeKernel(commandQueue, mergePrefixSumsKernel, 2, NULL, globalThreadsOffset, NULL, 0, NULL, NULL);
-		//std::cout << status << std::endl;
-		//clFlush(commandQueue);
-		//clFinish(commandQueue);
-		//waitAndReleaseDevice(&execEvt4);
+		size_t globalThreadsOffset[2] = {numberOfGroups, R};
+		status = clSetKernelArg(mergePrefixSumsKernel, 0, sizeof(cl_mem), (void*)&summaryOutMem);
+		
+		status = clSetKernelArg(mergePrefixSumsKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);
+		
+		status = clEnqueueNDRangeKernel(queue, mergePrefixSumsKernel, 2, NULL, globalThreadsOffset, NULL, 0, NULL, NULL);
+	
 	}
 }
 
-// Function that invokes the execution of the kernels
-void runKernels(cl_uint* dSortedData,
-				size_t numOfGroups,
+void radixSort(MortonNode* dSortedData,
+				size_t numberOfGroups,
+				size_t groupSize) 
+{
+	int size = radixDataSize;
+
+		std::vector<MortonNode> dataVector;
+	dataVector.resize(size);
+
+
+	Timer timer;
+	timer.start();
+	for(int currentByte = 0; currentByte < sizeof(cl_uint) * bitsbyte ; currentByte += bitsbyte) {
+		computeHistogram(currentByte);
+		computeBlockScans();
+		computeRankingNPermutations(currentByte, groupSize);
+
+
+
+	}
+
+
+	timer.stop();
+	float endTime = timer.interval();
+	float frames = timer.getFramesPerSec();
+
+	clEnqueueReadBuffer(queue,sortedDataMem,CL_TRUE,0, radixDataSize *  sizeof(MortonNode) , &dataVector[0],0,0,0);
+
+
+	std::cout << "Timer : " << endTime << std::endl;
+	std::cout << "Frames : " << frames << std::endl;
+	std::cout << "Done" << std::endl;
+}
+
+
+void radixSort(cl_uint* dSortedData,
+				size_t numberOfGroups,
 				size_t groupSize) {
 
-					int size = DATA_SIZE;
-					//std::vector<cl_uint> dataVector;
-					//dataVector.resize(DATA_SIZE);
-					//for(int i = 0; i < size; i++)
-					//{
-					//	dataVector[i] = dSortedData[i];
-					//}
-
+					int size = radixDataSize;
 					Timer timer;
 					timer.start();
-					for(int currByte = 0; currByte < sizeof(cl_uint) * bitsbyte ; currByte += bitsbyte) {
-						computeHistogram(currByte);
+					for(int currentByte = 0; currentByte < sizeof(cl_uint) * bitsbyte ; currentByte += bitsbyte) {
+						computeHistogram(currentByte);
 						computeBlockScans();
-						computeRankingNPermutations(currByte, groupSize);
+						computeRankingNPermutations(currentByte, groupSize);
 					}
 
 					cl_int status;
-					cl_uint* data = (cl_uint*)clEnqueueMapBuffer(commandQueue, sortedData_d, CL_TRUE, CL_MAP_READ, 0, size*sizeof(cl_uint),0,NULL,NULL,&status);
-					//CHECK_ERROR(status, CL_SUCCESS, "mapping buffer failed");
+					cl_uint* data = (cl_uint*)clEnqueueMapBuffer(queue, sortedDataMem, CL_TRUE, CL_MAP_READ, 0, size*sizeof(cl_uint),0,NULL,NULL,&status);
+
 					memcpy(dSortedData, data, size*sizeof(cl_uint));
 					timer.stop();
 					float endTime = timer.interval();
@@ -335,47 +274,12 @@ void runKernels(cl_uint* dSortedData,
 						dataVector[i] = dSortedData[i];
 					}
 
-					clEnqueueUnmapMemObject(commandQueue,sortedData_d,data,0,NULL,NULL);
+					clEnqueueUnmapMemObject(queue,sortedDataMem,data,0,NULL,NULL);
 
 					std::cout << "Done" << std::endl;
 }
 
-void runKernels(MortonCode* dSortedData,
-				size_t numOfGroups,
-				size_t groupSize) 
-{
-	int size = DATA_SIZE;
 
-		std::vector<MortonCode> dataVector;
-	dataVector.resize(size);
-
-
-	Timer timer;
-	timer.start();
-	for(int currByte = 0; currByte < sizeof(cl_uint) * bitsbyte ; currByte += bitsbyte) {
-		computeHistogram(currByte);
-		computeBlockScans();
-		computeRankingNPermutations(currByte, groupSize);
-
-
-
-	}
-	clEnqueueReadBuffer(commandQueue,sortedData_d,CL_TRUE,0, DATA_SIZE *  sizeof(MortonCode) , &dataVector[0],0,0,0);
-
-
-	timer.stop();
-	float endTime = timer.interval();
-	float frames = timer.getFramesPerSec();
-
-	std::cout << "Timer : " << endTime << std::endl;
-	std::cout << "Frames : " << frames << std::endl;
-
-	
-
-
-
-	std::cout << "Done" << std::endl;
-}
 
 
 void loadProgramSource(const char** files, size_t length,char** buffer,size_t* sizes) {
@@ -403,8 +307,8 @@ void fillRandom(cl_uint* data, unsigned int length) {
 		iptr[i] = (cl_uint)rand();
 }
 
-void fillRandom(MortonCode* data, unsigned int length) {
-	MortonCode* iptr = data;
+void fillRandom(MortonNode* data, unsigned int length) {
+	MortonNode* iptr = data;
 	for(int i = 0 ; i < length; ++i) 
 	{
 		iptr[i].code = (cl_uint)rand();
@@ -415,34 +319,34 @@ void fillRandom(MortonCode* data, unsigned int length) {
 int main(int argc, char** argv) {
 
 
-	BIN_SIZE = (DATA_SIZE <= BIN_SIZE) ? DATA_SIZE/2 : BIN_SIZE;
+	radixBinSize = (radixDataSize <= radixBinSize) ? radixDataSize/2 : radixBinSize;
 
-	if ((DATA_SIZE / BIN_SIZE)/GROUP_SIZE  <=1)
+	if ((radixDataSize / radixBinSize)/radixGroupSize  <=1)
 	{
-		GROUP_SIZE = (DATA_SIZE / BIN_SIZE)/2;
-		if(GROUP_SIZE == 0)
+		radixGroupSize = (radixDataSize / radixBinSize)/2;
+		if(radixGroupSize == 0)
 		{
-			GROUP_SIZE = 1;
+			radixGroupSize = 1;
 		}
 
 	}
 
-	MortonCode* unsortedData = NULL;
-	MortonCode* dSortedData = NULL;
+	MortonNode* unsortedData = NULL;
+	MortonNode* dSortedData = NULL;
 
 	cl_platform_id* platforms;
 	cl_device_id device;
 	cl_uint numOfPlatforms;
 	cl_int  error;
 	cl_program program;
-	cl_uint groupSize = GROUP_SIZE;
-	cl_uint numOfGroups = DATA_SIZE / (groupSize * R); 
+	cl_uint groupSize = radixGroupSize;
+	cl_uint numberOfGroups = radixDataSize / (groupSize * R); 
 
-	unsortedData = (MortonCode*) malloc(DATA_SIZE * sizeof(MortonCode));
-	fillRandom(unsortedData, DATA_SIZE);
+	unsortedData = (MortonNode*) malloc(radixDataSize * sizeof(MortonNode));
+	fillRandom(unsortedData, radixDataSize);
 
-	dSortedData = (MortonCode*) malloc(DATA_SIZE * sizeof(MortonCode));
-	memset(dSortedData, 0, DATA_SIZE * sizeof(cl_uint));
+	dSortedData = (MortonNode*) malloc(radixDataSize * sizeof(MortonNode));
+	memset(dSortedData, 0, radixDataSize * sizeof(cl_uint));
 
 
 	//Get the number of platforms
@@ -512,60 +416,38 @@ int main(int argc, char** argv) {
 			exit(1);
 		}
 
-		// Queue is created with profiling enabled 
-		cl_command_queue_properties props;
-		props |= CL_QUEUE_PROFILING_ENABLE;
+		queue = clCreateCommandQueue(context, device, 0, &error);
 
-		commandQueue = clCreateCommandQueue(context, device, 0, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to create command queue");
-
-		unsortedData_d     = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, sizeof(MortonCode) * DATA_SIZE, unsortedData, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate unsortedData_d");
-		histogram_d        = clCreateBuffer(context, CL_MEM_READ_WRITE, numOfGroups * groupSize * R * sizeof(cl_uint), NULL, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate histogram_d");
-		scannedHistogram_d = clCreateBuffer(context, CL_MEM_READ_WRITE, numOfGroups * groupSize * R * sizeof(cl_uint), NULL, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate scannedHistogram_d");
-		sortedData_d       = clCreateBuffer(context, CL_MEM_WRITE_ONLY, DATA_SIZE * sizeof(MortonCode), NULL, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate sortedData_d");
-		sum_in_d           = clCreateBuffer(context, CL_MEM_READ_WRITE, (DATA_SIZE/groupSize) * sizeof(cl_uint), NULL, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate sum_in_d");
-		sum_out_d          = clCreateBuffer(context, CL_MEM_READ_WRITE, (DATA_SIZE/groupSize) * sizeof(cl_uint), NULL, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate sum_out_d");
-		summary_in_d       = clCreateBuffer(context, CL_MEM_READ_WRITE, R * sizeof(cl_uint), NULL, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate summary_in_d");
-		summary_out_d      = clCreateBuffer(context, CL_MEM_READ_WRITE, R * sizeof(cl_uint), NULL, &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "failed to allocate summary_out_d");
+		unsortedDataMem     = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, sizeof(MortonNode) * radixDataSize, unsortedData, &error);
+		histogramMem        = clCreateBuffer(context, CL_MEM_READ_WRITE, numberOfGroups * groupSize * R * sizeof(cl_uint), NULL, &error);
+		scannedHistogramMem = clCreateBuffer(context, CL_MEM_READ_WRITE, numberOfGroups * groupSize * R * sizeof(cl_uint), NULL, &error);
+		sortedDataMem       = clCreateBuffer(context, CL_MEM_WRITE_ONLY, radixDataSize * sizeof(MortonNode), NULL, &error);
+		sumInMem           = clCreateBuffer(context, CL_MEM_READ_WRITE, (radixDataSize/groupSize) * sizeof(cl_uint), NULL, &error);
+		sumOutMem          = clCreateBuffer(context, CL_MEM_READ_WRITE, (radixDataSize/groupSize) * sizeof(cl_uint), NULL, &error);
+		summaryInMem       = clCreateBuffer(context, CL_MEM_READ_WRITE, R * sizeof(cl_uint), NULL, &error);
+		summaryOutMem      = clCreateBuffer(context, CL_MEM_READ_WRITE, R * sizeof(cl_uint), NULL, &error);
 
 		histogramKernel = clCreateKernel(program, "computeHistogram", &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create histogram kernel");
 		permuteKernel   = clCreateKernel(program, "rankNPermute", &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create permute kernel");
 		unifiedBlockScanKernel  = clCreateKernel(program, "unifiedBlockScan", &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create unifiedBlockScan kernel");
 		blockScanKernel  = clCreateKernel(program, "blockScan", &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create blockScan kernel");
 		prefixSumKernel = clCreateKernel(program, "blockPrefixSum", &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create compute block prefix sum kernel");
 		blockAddKernel  = clCreateKernel(program, "blockAdd", &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create block addition kernel");
 		mergePrefixSumsKernel    = clCreateKernel(program, "mergePrefixSums", &error);
-		//CHECK_ERROR(error, CL_SUCCESS, "Failed to create fix offset kernel");
 
-		printf("elementCount: %u, numOfGroups: %u, groupSize: %u\n", DATA_SIZE, 1, groupSize);
-		runKernels( dSortedData, numOfGroups, groupSize);
+		radixSort( dSortedData, numberOfGroups, groupSize);
 
 
 		// Clean up 
-		for(int j=0; j< NUMBER_OF_FILES; j++) { free(buffer[j]); }
 
-		clReleaseMemObject(unsortedData_d);
-		clReleaseMemObject(histogram_d);
-		clReleaseMemObject(scannedHistogram_d);
-		clReleaseMemObject(sortedData_d);
-		clReleaseMemObject(sum_in_d);
-		clReleaseMemObject(sum_out_d);
-		clReleaseMemObject(summary_out_d);
-		clReleaseMemObject(summary_in_d);
+		clReleaseMemObject(unsortedDataMem);
+		clReleaseMemObject(histogramMem);
+		clReleaseMemObject(scannedHistogramMem);
+		clReleaseMemObject(sortedDataMem);
+		clReleaseMemObject(sumInMem);
+		clReleaseMemObject(sumOutMem);
+		clReleaseMemObject(summaryOutMem);
+		clReleaseMemObject(summaryInMem);
 		clReleaseKernel(histogramKernel);
 		clReleaseKernel(permuteKernel);
 		clReleaseKernel(unifiedBlockScanKernel);
@@ -574,18 +456,8 @@ int main(int argc, char** argv) {
 		clReleaseKernel(blockAddKernel);
 		clReleaseKernel(mergePrefixSumsKernel);
 
-		// Verification Checks
-		/*   radixSortCPU(unsortedData, hSortedData);
-		for(int k = 0, acc = 0; k < DATA_SIZE; k++) { 
-		if (hSortedData[k] == dSortedData[k]) acc++;
-		if ((k+1) == DATA_SIZE) {
-		if (acc == DATA_SIZE) printf("Passed:%u!\n", acc); else printf("Failed:%u!\n", acc);
-		}
-		}*/
-
 		free(unsortedData);
 		free(dSortedData);
-		// free(hSortedData);
 
 		system("pause");
 

@@ -99,6 +99,7 @@
     <None Include="Kernels\generateSceneBBox.opencl" />
     <None Include="Kernels\initializeCells.opencl" />
     <None Include="Kernels\kernelHelperFunctions.opencl" />
+    <None Include="Kernels\radixSort.opencl" />
     <None Include="Kernels\sortMortonCodes.opencl" />
     <None Include="Kernels\sumCells.opencl" />
   </ItemGroup>

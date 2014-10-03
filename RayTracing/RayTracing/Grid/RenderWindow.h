@@ -80,6 +80,7 @@ private:
 	void construct();
 	void initializeCL();
 	void initializeProgram();
+	void initializeMemory();
 	void initializeSceneBBox();
 	void initializeCells();
 	void initializeCellObjects();

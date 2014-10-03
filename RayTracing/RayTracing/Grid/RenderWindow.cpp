@@ -70,7 +70,7 @@ void RenderWindow::construct()
 		//spheres.push_back(sphere);
 
 		Object object; 
-	
+
 		BBox b = {
 			glm::vec3(sphere.getMinX(),
 			sphere.getMinY(),
@@ -79,7 +79,7 @@ void RenderWindow::construct()
 			sphere.getMaxX(),
 			sphere.getMaxY(),
 			sphere.getMaxZ()),0.0f
-			
+
 		};
 		object.material = sphere.material;
 		object.box = b;
@@ -162,18 +162,18 @@ void RenderWindow::updateScene()
 	// 0
 	//updateBBox();
 	//updateCells();
-	
+
 	profileTimer.start();
 	updateDrawScene();
-	float drawTimer = profileTimer.elapsed()/1000.0f;
-	
+
 	imageLabel.setPixmap(QPixmap::fromImage(readImage));
+	float drawTimer = profileTimer.elapsed()/1000.0f;
 
 	float time = (timer.elapsed()/1000.0f);
 	float frames = 1.0f/time;
-	setWindowTitle( "Frames : "+ QString::number(frames));
+	setWindowTitle( "Time : " + QString::number(time) + "Frames : "+ QString::number(frames));
 
-
+	//safasdfasdfasdf
 
 }
 void RenderWindow::updateBBox()
@@ -183,7 +183,7 @@ void RenderWindow::updateBBox()
 	box = b;
 	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],0);
 	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light), &lights[0],0);
-	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,sizeof(BBox), &box,&err);
+	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,sizeof(BBox), NULL,&err);
 	lengthOfObjects = objects.size();
 	clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
 	clSetKernelArg(sceneBBoxKernel,1 , sizeof(cl_mem), &objectMem);
@@ -262,8 +262,8 @@ void RenderWindow::updateCells()
 
 
 	cellIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, cellIndices.size() * sizeof(cl_int),&cellIndices[0], &err);
-	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
-	cellIncrementsMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int)* numCells, &cellIncrements[0], &err);
+	objectIndicesMem = clCreateBuffer(context,CL_MEM_READ_WRITE, sizeof(cl_int) * numberOfCellObjects, NULL, &err );
+	cellIncrementsMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_int)* numCells, NULL, &err);
 
 
 	clSetKernelArg(findObjectCellsKernel,0 , sizeof(cl_mem), &objectMem);
@@ -277,8 +277,8 @@ void RenderWindow::updateCells()
 		NULL, initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
-	clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
-	clEnqueueReadBuffer(queue,cellIncrementsMem,CL_TRUE,0,sizeof(int) * numCells, &cellIncrements[0],0,0,0);
+	//clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
+	//clEnqueueReadBuffer(queue,cellIncrementsMem,CL_TRUE,0,sizeof(int) * numCells, &cellIncrements[0],0,0,0);
 
 	//vector<cl_int>tObjectIndices;
 	//tObjectIndices.resize(numberOfCellObjects);
@@ -300,7 +300,7 @@ void RenderWindow::updateCells()
 	//	}
 	//}
 
-//	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
+	//	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
 
 
 }
@@ -457,87 +457,21 @@ void RenderWindow::initializeProgram()
 }
 void RenderWindow::initializeSceneBBox()
 {
-	QImage image(windowWidth,windowHeight,QImage::Format_RGBA8888);
-	char * buffer = new char[windowWidth * windowHeight * 4];
-	memcpy( buffer,image.bits(), windowWidth* windowHeight * 4);
-
-	cl_image_format clImageFormat;
-	clImageFormat.image_channel_order = CL_RGBA;
-	clImageFormat.image_channel_data_type = CL_UNSIGNED_INT8;
-
-
-	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
-	if(err != CL_SUCCESS)
-	{
-		cout << "Error creating Object" << endl;
-		exit(-1);
-	}
-
-	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light)* objects.size(), &lights[0],&err);
-	if(err != CL_SUCCESS)
-	{
-		cout << "Error creating Lights Object" << endl;
-		exit(-1);
-	}
-
-
-	clImage = clCreateImage2D(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, & clImageFormat, windowWidth,windowHeight,0,buffer,&err);
-
-	if(err != CL_SUCCESS)
-	{
-		cout << "Error creating CL Image object" << endl;
-		exit(-1);
-	}
-
-	writeCLImage = clCreateImage2D(context, CL_MEM_WRITE_ONLY, &clImageFormat, windowWidth,windowHeight, 0 ,NULL, &err);
-
-	if(err != CL_SUCCESS)
-	{
-		cout << "Error creating writable CL Image object" << endl;
-		exit(-1);
-	}
-
-	sampler  = clCreateSampler(context, CL_FALSE, CL_ADDRESS_CLAMP_TO_EDGE, CL_FILTER_NEAREST, & err);
-	if(err != CL_SUCCESS)
-	{
-		cout << "Error creating CL sampler object" << endl;
-		//cleanup
-		exit(-1);
-	}
-
-	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,sizeof(BBox), &box,&err);
-
-	if(err != CL_SUCCESS)
-	{
-		cout << "Error creating bounding box memory sampler object" << endl;
-		//cleanup
-		exit(-1);
-	}
-
-
-	if(err < 0) {
-		perror("Couldn't create the kernel");
-		exit(1);   
-	}
 
 
 	cl_int lengthOfObjects = objects.size();
 	int globalObjectSize = nextPowerOfTwo(objects.size());
 
-	vector<cl_float3> minArr;
-	minArr.resize(globalObjectSize);
-	vector<cl_float3> maxArr;
-	maxArr.resize(globalObjectSize);
 
-	minMem = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(cl_float3) * globalObjectSize, &minArr[0],&err);
-	maxMem = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(cl_float3) * globalObjectSize, &maxArr[0],&err);
+	minMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float3) * globalObjectSize, NULL,&err);
+	maxMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float3) * globalObjectSize, NULL,&err);
 	//finish setting up mem stuff in header file...
 
 	err |= clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
 	err |= clSetKernelArg(sceneBBoxKernel,1 , sizeof(cl_mem), &objectMem);
 	err |= clSetKernelArg(sceneBBoxKernel,2 , sizeof(cl_int), &lengthOfObjects);
-	err |= clSetKernelArg(sceneBBoxKernel,3 , sizeof(cl_mem),minMem);
-	err |= clSetKernelArg(sceneBBoxKernel,4 , sizeof(cl_mem) , maxMem);
+	err |= clSetKernelArg(sceneBBoxKernel,3 , sizeof(cl_mem),&minMem);
+	err |= clSetKernelArg(sceneBBoxKernel,4 , sizeof(cl_mem) , &maxMem);
 
 
 	queue = clCreateCommandQueue(context, device, 0, &err);
@@ -559,7 +493,6 @@ void RenderWindow::initializeSceneBBox()
 	clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
 
 
-	delete [] buffer;
 }
 void RenderWindow::initializeCells()
 {
@@ -586,7 +519,7 @@ void RenderWindow::initializeCells()
 	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * numCells, &cells[0],&err);
 	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(BBox) * numCells, &cBoxes[0],&err);
 	sumMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int), &numberOfCellObjects,&err);
-	
+
 	//vector<Octree> nodes;
 	//nodes.resize(treeManager->octreeNodes.size());
 	//cl_mem treeMem = clCreateBuffer(context,CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(Octree) * treeManager->octreeNodes.size(), &treeManager->octreeNodes[0],&err);;
@@ -674,8 +607,8 @@ void RenderWindow::initializeCellObjects()
 		NULL, initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
-	clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
-	clEnqueueReadBuffer(queue,cellIncrementsMem,CL_TRUE,0,sizeof(int) * numCells, &cellIncrements[0],0,0,0);
+//	clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
+//	clEnqueueReadBuffer(queue,cellIncrementsMem,CL_TRUE,0,sizeof(int) * numCells, &cellIncrements[0],0,0,0);
 
 }
 void RenderWindow::initializeDrawScene()
@@ -720,7 +653,6 @@ void RenderWindow::initializeDrawScene()
 		exit(1);   
 	}
 
-	readBuffer = new uchar [windowWidth*windowHeight * 4];
 
 
 
@@ -745,32 +677,83 @@ void RenderWindow::initializeDrawScene()
 		exit(-1);
 	}
 }
+
+void RenderWindow::initializeMemory()
+{
+		cl_image_format clImageFormat;
+	clImageFormat.image_channel_order = CL_RGBA;
+	clImageFormat.image_channel_data_type = CL_UNSIGNED_INT8;
+
+
+	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating Object" << endl;
+		exit(-1);
+	}
+
+	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light)* objects.size(), &lights[0],&err);
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating Lights Object" << endl;
+		exit(-1);
+	}
+
+
+	clImage = clCreateImage2D(context, CL_MEM_READ_ONLY , & clImageFormat, windowWidth,windowHeight,0,NULL,&err);
+
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating CL Image object" << endl;
+		exit(-1);
+	}
+
+	writeCLImage = clCreateImage2D(context, CL_MEM_WRITE_ONLY, &clImageFormat, windowWidth,windowHeight, 0 ,NULL, &err);
+
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating writable CL Image object" << endl;
+		exit(-1);
+	}
+
+	sampler  = clCreateSampler(context, CL_FALSE, CL_ADDRESS_CLAMP_TO_EDGE, CL_FILTER_NEAREST, & err);
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating CL sampler object" << endl;
+		//cleanup
+		exit(-1);
+	}
+
+	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,sizeof(BBox), &box,&err);
+
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating bounding box memory object" << endl;
+		//cleanup
+		exit(-1);
+	}
+
+
+
+	readBuffer = new uchar [windowWidth*windowHeight * 4];
+
+}
+
 void RenderWindow::initializeCL()
 {
 
 	initializeProgram();
+	initializeMemory();
+
 	profileTimer.start();
+	timer.start();
+	float time = timer.elapsed()/ 1000.0f;
 	initializeSceneBBox();
 	cout << "SceneBox : " << (profileTimer.elapsed()/1000.0f) << endl;
-	
-	timer.start();
-//	treeManager = new OctreeManager(Octree(box.min + (glm::abs(box.max - box.min)/2.0f),box, 0));
-//	treeManager->insert(objects);
-	float time = timer.elapsed()/ 1000.0f;
-
-
-
-
-	//delete treeManager;
-
 	profileTimer.start();
 	initializeCells();
 	cout << "Initialize Cells : " << (profileTimer.elapsed()/1000.0f) << endl;
 	profileTimer.start();
-
-	//delete treeManager;
-	cout << "Done" << endl;
-
 	initializeCellObjects();
 	cout << "Initialize Cell Objects : " << (profileTimer.elapsed()/1000.0f) << endl;
 	profileTimer.start();

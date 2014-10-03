@@ -57,5 +57,6 @@
     <None Include="Kernels\kernelHelperFunctions.opencl" />
     <None Include="Kernels\sumCells.opencl" />
     <None Include="Kernels\sortMortonCodes.opencl" />
+    <None Include="Kernels\radixSort.opencl" />
   </ItemGroup>
 </Project>
