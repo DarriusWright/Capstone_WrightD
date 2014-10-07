@@ -5,11 +5,9 @@
 #include <Objects\Triangle.h>
 
 
-Object inline createObjectFromTriangle(Triangle triangle)
+Object inline createObjectFromTriangle(Triangle triangle, glm::vec3 position)
 {
-	BBox box  = {glm::min(glm::min(triangle.v0, triangle.v1), triangle.v2),0.0f, glm::max(glm::max(triangle.v0, triangle.v1), triangle.v2), 0.0};
-	glm::vec3 position = box.min  + ((box.max - box.min)/2.0f);
-
+	BBox box  = {glm::min(glm::min(triangle.v0, triangle.v1), triangle.v2),0.0f, glm::max(glm::max(triangle.v0, triangle.v1), triangle.v2), 0.0f};
 	Object retObj;
 
 	retObj.box = box;

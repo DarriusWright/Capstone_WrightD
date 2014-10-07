@@ -10,7 +10,7 @@ RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,50.0f), g
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
-	setSamples(4);
+	setSamples(1);
 	construct();
 }
 RenderWindow::~RenderWindow(void)
@@ -81,11 +81,15 @@ void RenderWindow::addMesh(std::string fileName)
 	for (UINT i = 0; i < modelIndices.size(); i+=3)
 	{
 		Triangle tri;
+		tri.v0 = glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i]]));
+		tri.v1 = glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i + 1]]));
+		tri.v2 = glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i + 2]]));
+
+		Object o = createObjectFromTriangle(tri, position);
 		tri.v0 = position + glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i]]));
 		tri.v1 = position + glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i + 1]]));
 		tri.v2 = position + glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i + 2]]));
 
-		Object o = createObjectFromTriangle(tri);
 		o.triangleIndex = triangles.size();
 		o.index = objects.size();
 		o.material = material;
@@ -227,25 +231,6 @@ void RenderWindow::construct()
 }
 void RenderWindow::updateDrawScene()
 {
-	// invalid mem object on the second run... check it out.
-	//err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
-	//err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
-	//err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_sampler), &sampler);
-	//err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
-	//err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
-	//err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem),(objects.size()) ?  &objectMem : 0);
-	//err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem),(triangles.size()) ?  &trianglesMem : 0);
-	//err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem),(lights.size()) ?  &lightMem : 0);
-	//err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
-	//err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
-	//err |= clSetKernelArg(drawSceneKernel,10, sizeof(BBox), &box);
-	//err |= clSetKernelArg(drawSceneKernel, 11, sizeof(cl_mem), &cellsMem);
-	//err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_int), &nx);
-	//err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_int), &ny);
-	//err |= clSetKernelArg(drawSceneKernel,14 , sizeof(cl_int), &nz);
-	//err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &cellIndicesMem);
-	//err |= clSetKernelArg(drawSceneKernel, 16, sizeof(cl_mem), &objectIndicesMem);
-	//err |= clSetKernelArg(drawSceneKernel, 17, sizeof(Camera), &camera);
 
 	err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
 	err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
@@ -254,7 +239,6 @@ void RenderWindow::updateDrawScene()
 	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
 	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem), &objectMem);
 	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &trianglesMem);
-
 	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem), &lightMem);
 	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
 	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
@@ -300,6 +284,12 @@ void RenderWindow::updateScene()
 	interval = (timer.elapsed()/1000.0f);
 	fps = 1.0f/interval;
 
+		for(int i = 0; i < 120; i++)
+	{
+		camera.moveLeft();
+	}
+
+
 }
 void RenderWindow::updateBBox()
 {
@@ -333,6 +323,8 @@ void RenderWindow::updateBBox()
 		NULL, 0, NULL, NULL);
 
 	err |=clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
+
+
 
 }
 void RenderWindow::updateCells()
