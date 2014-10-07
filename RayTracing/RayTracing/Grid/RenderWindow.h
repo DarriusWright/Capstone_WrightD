@@ -42,8 +42,7 @@ public:
 	
 	void resizeEvent(QResizeEvent * e)override;
 	void addLight(Light light);
-	void addObject(Object sphere);
-	void addMesh(std::string filePath);
+	void addObject(std::string path);
 	void addSphere();
 	float getFPS();
 	float getInterval();
@@ -58,6 +57,7 @@ private:
 
 	int samples;
 	int sampleSquared;
+	void addMesh(std::string filePath);
 	
 
 //	QOpenGLFramebufferObject * frameBuffer;
@@ -88,6 +88,9 @@ private:
 	vector<cl_int> cellIndices;
 	vector<cl_int> objectIndices;
 	vector<cl_int> cellIncrements;
+	vector<cl_float3> minArr;
+	vector<cl_float3> maxArr;
+	vector<std::string> objectPaths;
 	vector<BBox> cBoxes;
 	vector<cl_uint> cells;
 
@@ -146,12 +149,12 @@ private:
 	cl_mem minMem;
 	cl_mem maxMem;
 	cl_mem trianglesMem;
-
 	cl_mem writeCLImage;
 	cl_mem lightMem;
 	cl_mem sumMem;
 	cl_mem boundingBoxMem;
 	cl_mem objectMem;
+
 	cl_sampler sampler;
 	cl_int windowWidth;
 	cl_int windowHeight;

@@ -6,15 +6,18 @@ CL_DEVICE_MAX_WORK_ITEM_SIZES - 1024, 1024, 64
 const cl_float RenderWindow::MIN = 10000000.0f;
 const cl_float RenderWindow::MAX = -10000000.0f;
 
-RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,50.0f), glm::vec3(0,0,0)) , random(Random::getInstance())
+RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance())
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
 	setSamples(1);
+	initializeProgram();
 	construct();
 }
 RenderWindow::~RenderWindow(void)
 {
+
+
 	delete[]readBuffer;
 	clReleaseMemObject(clImage);
 
@@ -68,6 +71,10 @@ void RenderWindow::addMesh(std::string fileName)
 	if(triangles.size())
 		clReleaseMemObject(trianglesMem);
 
+	if(objects.size())
+		clReleaseMemObject(objectMem);
+
+
 	//int triangleInitSize = triangles.size();
 	triangles.reserve(modelIndices.size() / 3);
 	objects.reserve(modelIndices.size() / 3);
@@ -98,7 +105,9 @@ void RenderWindow::addMesh(std::string fileName)
 
 	}
 
-	//trianglesMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Triangle)* triangles.size(), &triangles[0],&err);
+
+	trianglesMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Triangle)* triangles.size(), &triangles[0],&err);
+	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
 
 }
 void RenderWindow::resizeEvent(QResizeEvent * e)
@@ -113,10 +122,9 @@ void RenderWindow::addLight(Light light)
 	lights.push_back(light);
 	numberOfLights++;
 }
-void RenderWindow::addObject(Object object)
+void RenderWindow::addObject(std::string path)
 {
-	objects.push_back(object);
-	numberOfObjects++;
+	objectPaths.push_back(path);
 }
 void RenderWindow::addSphere()
 {
@@ -154,54 +162,7 @@ void RenderWindow::construct()
 
 	layout = new QHBoxLayout();
 	Light light = {{{0.925,0.835,0.102}, {0.73,0.724,0.934},{0.2,0.52,0.96}}, {2.0f,2.0f,200.0f}};
-	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/basicCube.obj");
-
-	//Random random = Random::getInstance();
-	//objects.reserve(NUMBER_OF_SPHERES);
-	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
-	//{
-
-	//	Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
-	//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
-	//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
-	//	glm::vec4(random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(30.0f,50.0f),30.0f)};
-	//	//spheres.push_back(sphere);
-
-	//	Object object; 
-
-	//	BBox b = {
-	//		glm::vec3(sphere.getMinX(),
-	//		sphere.getMinY(),
-	//		sphere.getMinZ()),0.0f,
-	//		glm::vec3(
-	//		sphere.getMaxX(),
-	//		sphere.getMaxY(),
-	//		sphere.getMaxZ()),0.0f
-
-	//	};
-	//	object.material = sphere.material;
-	//	object.box = b;
-	//	//cl_int2 indices = {0,0};
-	//	object.triangleIndex =-1;
-	//	object.index = i;
-	//	object.position = sphere.position;
-
-
-	//	objects.push_back(object);
-	//
-
-	//	//box.min[0] = glm::min((sphere.getMinX() + sphere.position[0]) ,box.min[0]);
-	//	//box.min[1] = glm::min(sphere.getMinY()  +  sphere.position[1],box.min[1]);
-	//	//box.min[2] = glm::min(sphere.getMinZ()	 + sphere.position[2],box.min[2]);
-
-	//	//box.max[0] = glm::max(sphere.getMaxX()+ sphere.position[0],box.max[0]);
-	//	//box.max[1] = glm::max(sphere.getMaxY()+  sphere.position[1],box.max[1]);
-	//	//box.max[2] = glm::max(sphere.getMaxZ()+ sphere.position[2],box.max[2]);
-
-
-	//}
-
-
+	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/suzy.obj");
 
 
 	lights.push_back(light);
@@ -217,14 +178,6 @@ void RenderWindow::construct()
 
 	initializeCL();
 
-	//connect(&updateTimer,SIGNAL(timeout()),this,SLOT(updateScene()));
-	//updateTimer.start();
-
-	//for (int i = 0; i < 5; i++)
-	//{
-	//	camera.moveLeft();
-
-	//}
 
 	QImage r(readBuffer,windowWidth,windowHeight,QImage::Format::Format_RGBA8888);
 	readImage  =r;
@@ -284,18 +237,22 @@ void RenderWindow::updateScene()
 	interval = (timer.elapsed()/1000.0f);
 	fps = 1.0f/interval;
 
-		for(int i = 0; i < 120; i++)
-	{
-		camera.moveLeft();
-	}
-
-
 }
 void RenderWindow::updateBBox()
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
-
 	box = b;
+
+	cl_int lengthOfObjects = objects.size();
+	int globalObjectSize = nextPowerOfTwo(objects.size());
+
+	minArr.resize(globalObjectSize);
+	maxArr.resize(globalObjectSize);
+
+	minMem = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(cl_float3) * globalObjectSize, &minArr[0],&err);
+	maxMem = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(cl_float3) * globalObjectSize, &maxArr[0],&err);
+
+
 	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
 	if(triangles.size())
 		trianglesMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Triangle)* triangles.size(), &triangles[0],&err);
@@ -304,7 +261,6 @@ void RenderWindow::updateBBox()
 
 	//err |= clEnqueueReadBuffer(queue,trianglesMem, CL_TRUE,0, sizeof(Triangle) * triangles.size(), &triangles[0], 0,0,0);
 
-	cl_int lengthOfObjects = objects.size();
 
 	err |= clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
 	err |= clSetKernelArg(sceneBBoxKernel,1 , sizeof(cl_mem), &objectMem);
@@ -346,11 +302,11 @@ void RenderWindow::updateCells()
 
 
 	cells.resize(numCells);
-	cBoxes.resize(numCells);
+	//cBoxes.resize(numCells);
 	initCellWorkSize[1] = numCells;
 	numberOfCellObjects = 0;
 	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * numCells, &cells[0],&err);
-	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(BBox) * numCells, &cBoxes[0],&err);
+	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY ,sizeof(BBox) * numCells, NULL,&err);
 	sumMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int), &numberOfCellObjects,&err);
 
 
@@ -374,7 +330,7 @@ void RenderWindow::updateCells()
 		NULL, 0, NULL, NULL);
 
 	err|=clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * numCells, &cells[0],0,0,0);
-	err|=clEnqueueReadBuffer(queue,cellsBoxMem,CL_TRUE,0, sizeof(BBox) * numCells, &cBoxes[0],0,0,0);
+	//err|=clEnqueueReadBuffer(queue,cellsBoxMem,CL_TRUE,0, sizeof(BBox) * numCells, &cBoxes[0],0,0,0);
 	err|=clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
 
 
@@ -418,10 +374,22 @@ float RenderWindow::getInterval()
 }
 void RenderWindow::releaseUpdate()
 {
+	
+	if(objectPaths.size() > 0)
+	{
+		for (int i = 0; i < objectPaths.size(); i++)
+		{
+			addMesh(objectPaths[i]);
+		}
+
+		objectPaths.clear();
+	}
 	cellIndices.clear();
 	objectIndices.clear();
 	cellIncrements.clear();
-	cBoxes.clear();
+	minArr.clear();
+	maxArr.clear();
+	//cBoxes.clear();
 	cells.clear();
 	clReleaseMemObject(sumMem);
 	clReleaseMemObject(objectMem);//
@@ -433,6 +401,8 @@ void RenderWindow::releaseUpdate()
 	clReleaseMemObject(cellIncrementsMem);//
 	clReleaseMemObject(boundingBoxMem);
 	clReleaseMemObject(trianglesMem);//
+	clReleaseMemObject(minMem);
+	clReleaseMemObject(maxMem);
 
 	//clReleaseMemObject(minMem);//
 	//clReleaseMemObject(maxMem);//
@@ -579,9 +549,7 @@ void RenderWindow::initializeSceneBBox()
 	cl_int lengthOfObjects = objects.size();
 	int globalObjectSize = nextPowerOfTwo(objects.size());
 
-	vector<cl_float3> minArr;
 	minArr.resize(globalObjectSize);
-	vector<cl_float3> maxArr;
 	maxArr.resize(globalObjectSize);
 
 	minMem = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(cl_float3) * globalObjectSize, &minArr[0],&err);
@@ -632,15 +600,12 @@ void RenderWindow::initializeCells()
 	nz = multi * wz / s + 1;
 
 	numCells = nx * ny * nz;
-	numCells = numCells;
 	numberOfCellObjects = 0;
-	//vector<cl_uint> cells;
 	cells.resize(numCells);
-	//vector<BBox> cBoxes;
 	cBoxes.resize(numCells);
 	initCellWorkSize[1] = numCells;
 	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * numCells, &cells[0],&err);
-	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(BBox) * numCells, &cBoxes[0],&err);
+	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY ,sizeof(BBox) * numCells, NULL,&err);
 	sumMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int), &numberOfCellObjects,&err);
 
 
@@ -701,10 +666,6 @@ void RenderWindow::initializeCellObjects()
 	err = clEnqueueNDRangeKernel(queue, findObjectCellsKernel, 2 ,
 		NULL, initCellWorkSize, 
 		NULL, 0, NULL, NULL);
-
-	//	clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
-	//	clEnqueueReadBuffer(queue,cellIncrementsMem,CL_TRUE,0,sizeof(int) * numCells, &cellIncrements[0],0,0,0);
-
 }
 void RenderWindow::initializeDrawScene()
 {
@@ -829,17 +790,11 @@ void RenderWindow::initializeMemory()
 		//cleanup
 		exit(-1);
 	}
-
-
-
-
-	readBuffer = new uchar [windowWidth*windowHeight * 4];
-
 }
 void RenderWindow::initializeCL()
 {
 
-	initializeProgram();
+	//initializeProgram();
 	initializeMemory();
 	profileTimer.start();
 	timer.start();

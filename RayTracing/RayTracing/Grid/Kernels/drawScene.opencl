@@ -6,22 +6,34 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 	Camera camera, int samples, int samplesSquared)
 {
 	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
-	uint4 outColor = (uint4)(0,0,0,255*4);
+	uint4 outColor = (uint4)(0,0,0,255);
 
 
 		
 
 
-		for(int row = 0; row < samplesSquared; row++)
-		{
-			for(int column = 0; column < samplesSquared; column++ )
-			{
-				int2 dim = (int2)(column,row);
-				Ray ray = generateRay(outImageCoord, width, height, camera,dim,samples);
+	//	for(int row = 0; row < samplesSquared; row++)
+	//	{
+	//		for(int column = 0; column < samplesSquared; column++ )
+		//	{
+				//int2 dim = (int2)(column,row);
+
+				int2 dim = (int2)(0,0);
+				Ray ray = generateRay(outImageCoord, width, height, camera,dim,1);
 				HitReturn hitCheck = hitBBox(ray,box.min,box.max);
 
 				if(hitCheck.hit)
 				{
+					/*
+					for(int i = 0; i < numberOfObjects; i++)
+					{
+						TriangleInfo triInfo = triangleCollision(ray,triangles[objects[i].triangleIndex]);
+								if(triInfo.hasIntersection)
+								{
+									outColor = (uint4)adsLightT(objects[i], light[0], triInfo);
+								}
+					}*/
+
 
 					int3 currentCell;
 					float3 cellDimensions = (float3)(nx,ny,nz);
@@ -39,15 +51,14 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 
 					
 					float3 delta = (box.max - box.min)/cellDimensions ;
-					//float3 next = (float3)(box.min.x + (currentCell.x + 1) * delta.x,box.min.y + (iy + 1) * delta.y,box.min.z + (iz + 1) * delta.z);
 					float3 next = (convert_float3(currentCell) + 1.0f) * delta;
 					bool run =  true;
+					float lastDistance = 100000000.0f;
 					
 					while(run)
 					{
 						int cellObjectNumber = cellIndices[cellIndex]- cellIndices[cellIndex-1];
 						//cellObjectNums[cellIndex] = cellObjectNumber;
-						float lastDistance = 100000000.0f;
 						for(int i = 0; i <  cellObjectNumber; i++ )
 						{
 							int objectIndex = objectIndices[cellIndices[cellIndex-1] + i]-1;
@@ -84,31 +95,30 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 								run = (currentCell.x != cellDimensions.x);
 								
 							}
+							else if(next.y < next.z)
+							{
+								next.y += delta.y;
+								currentCell.y += 1;
+								run = (currentCell.y != cellDimensions.y);
+							}
 							else
 							{
-								if(next.y < next.z)
-								{
-									next.y += delta.y;
-									currentCell.y += 1;
-									run = (currentCell.y != cellDimensions.y);
-								}
-								else
-								{
-									next.z += delta.z;
-									currentCell.z += 1;
-									run = (currentCell.z != cellDimensions.z);
-								}
-							
+								next.z += delta.z;
+								currentCell.z += 1;
+								run = (currentCell.z != cellDimensions.z);
 							}
+							
+							
 							cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
 						}
 					}
 
-						
+					
 				}
-			}
-		}
-	outColor /=samples;
+
+		//	}
+		//}
+	//outColor /=samples;
 	write_imageui(dstImage, outImageCoord, outColor);
 
 }

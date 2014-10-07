@@ -53,7 +53,7 @@ void MainWindow::addObject()
 	{
 
 		std::string stringFile (fileName.toLocal8Bit().constData());
-		renderer->addMesh(stringFile);
+		renderer->addObject(stringFile);
 	}
 
 }
