@@ -16,14 +16,32 @@ typedef struct
 }Material;
 
 
+typedef struct
+{
+	float3 v0;
+	float3 v1;
+	float3 v2;
+}Triangle;
+
+typedef struct 
+{
+	float3 v0;
+	float3 v1;
+	float3 v2;
+	float3 normal;
+	bool hasIntersection;
+	float distanceFromIntersection;
+
+}TriangleInfo;
 
 typedef struct
 {
     Material material;
     BBox box;
     float4 position;
-    int2 triangleIndices;
-    int cellId;
+    int triangleIndex;
+    int index;
+    uint cellId;
     
     
 }Object;
@@ -83,6 +101,67 @@ typedef struct
 	float3 origin;
 	int numberOfObjects;
 }Octree;
+
+
+
+
+TriangleInfo triangleCollision(Ray ray, Triangle triangle)
+{
+	TriangleInfo tri;
+	tri.v0 = triangle.v0;
+	tri.v1 = triangle.v1;
+	tri.v2 = triangle.v2;
+
+	tri.hasIntersection = false;
+	float3 V3 = tri.v2;
+	float3 V1 = tri.v0;
+	float3 V2 = tri.v1;
+
+
+
+	float3 e1, e2;  //Edge1, Edge2
+	float3 P, Q, T;
+	float det, inv_det, u, v;
+	float t;
+
+	//Find vectors for two edges sharing V1
+	e1=  V2 - V1;
+	e2=  V3 - V1;
+	//Begin calculating determinant - also used to calculate u parameter
+	P = cross( ray.direction, e2);
+	//if determinant is near zero, ray lies in plane of triangle
+	det = dot(e1, P);
+	//NOT CULLING
+	if (det > -epsilion && det < epsilion) return tri;
+	inv_det = 1.f / det;
+
+	//calculate distance from V1 to ray origin
+	T =  ray.origin - V1;
+
+	//Calculate u parameter and test bound
+	u = dot(T, P) * inv_det;
+	//The intersection lies outside of the triangle
+	if (u < 0.f || u > 1.f) return tri;
+
+	//Prepare to test v parameter
+	Q = cross( T, e1);
+
+	//Calculate V parameter and test bound
+	v = dot(ray.direction, Q) * inv_det;
+	//The intersection lies outside of the triangle
+	if (v < 0.f || u + v  > 1.f) return tri;
+
+	t = dot(e2, Q) * inv_det;
+
+	if (t > epsilion) { //ray intersection
+
+		tri.hasIntersection = true;
+		tri.distanceFromIntersection = t;
+
+		return tri;
+	}
+	return tri;
+}
 
 uint4 getColor()
 {
@@ -165,30 +244,23 @@ HitReturn hitBox(Ray ray, BBox box)
 {
 	return hitBBox(ray,box.min, box.max);
 }
-HitReturn hitBBoxOctree(Ray ray,float3 minPoint, float3 maxPoint)
+
+Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 dim, int sampleNumber)
 {
-	float3 t0 = (minPoint - ray.origin) / ray.direction;
-	float3 t1 = (maxPoint - ray.origin) /ray.direction;
-
-	float tmin = max(t0.x,max(t0.y,t0.z));
-	float tmax = min(t1.x,min(t1.y,t1.z));
-	
-	HitReturn returnValue;
-
-	returnValue.hit = (tmin < tmax && tmax > epsilion);
-	returnValue.minValue = tmin;
-	returnValue.maxValue = tmax;
-
-	return returnValue;
-}
-
-
-Ray generateRay(int2 pixelLocation, int width, int height, Camera camera)
-{
+	/*
 	Ray ray;
 	float2 pixelToRay = (float2)(pixelLocation.x - (0.5f * width -1.0f), pixelLocation.y - (0.5 * (height - 1.0f)));
 	ray.origin = camera.position;
 	ray.direction = normalize(pixelToRay.x * camera.u + pixelToRay.y * camera.v - camera.distance * camera.w);
+
+	return ray;
+	*/
+	Ray ray;
+	float2 pixelToRay = (float2)((pixelLocation.x - (0.5f * width)) + (dim.x + 0.5)/sampleNumber, (pixelLocation.y - (0.5 * height)) + (dim.y + 0.5)/sampleNumber);
+
+	ray.origin = camera.position;
+	ray.direction = normalize((pixelToRay.x * -camera.u) + (pixelToRay.y * camera.v) - (camera.distance * camera.w));
+
 
 	return ray;
 }
@@ -231,11 +303,22 @@ SphereInfo sphereIntersection(Ray ray, float3 position, float radius)
 	return s;
 }
 
-uint4 adsLight(Object object,Light light,SphereInfo sphereInfo)
+uint4 adsLightS(Object object,Light light,SphereInfo sphereInfo)
 {
 	float3 ambient = object.material.ambient.xyz * light.material.ambient.xyz;
 	float3 lightVector = normalize( light.position.xyz - object.position.xyz);
 	float lightDotNormal = max(dot(lightVector.xyz,sphereInfo.normal.xyz), 0.0);
+	float3 diffuse = object.material.diffuse.xyz * light.material.diffuse.xyz * lightDotNormal;
+	float3 finalColor =   ambient + diffuse;// + specular;
+	return (uint4)((convert_uint3(finalColor * 255.0f)),255);
+}
+
+
+uint4 adsLightT(Object object,Light light,TriangleInfo triangleInfo)
+{
+	float3 ambient = object.material.ambient.xyz * light.material.ambient.xyz;
+	float3 lightVector = normalize( light.position.xyz - object.position.xyz);
+	float lightDotNormal = max(dot(lightVector.xyz,triangleInfo.normal.xyz), 0.0);
 	float3 diffuse = object.material.diffuse.xyz * light.material.diffuse.xyz * lightDotNormal;
 	float3 finalColor =   ambient + diffuse;// + specular;
 	return (uint4)((convert_uint3(finalColor * 255.0f)),255);

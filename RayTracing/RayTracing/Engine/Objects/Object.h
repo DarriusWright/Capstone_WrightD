@@ -14,9 +14,9 @@ public :
 	Material material; 
 	BBox box;
 	glm::vec4 position;
-	cl_int2 triangleIndices;
+	cl_int triangleIndex;
 	cl_int index; 
 	cl_uint code;
-
+	float d1;
 
 };

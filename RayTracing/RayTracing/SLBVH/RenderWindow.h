@@ -22,6 +22,7 @@
 #include "OpenGLWindow.h"
 #include <QtGui\qopenglframebufferobject.h>
 #include <CL\cl_gl.h>
+#include <Timer.h>
 
 #include "Morton.h"
 
@@ -61,6 +62,7 @@ private:
 	static const cl_float MIN;
 	static const cl_float MAX;
 	static const cl_uint NUMBER_OF_SPHERES;
+
 	static const cl_uint bitsbyte = 8u;
 	static const  cl_uint R = (1 << bitsbyte);
 	static const  cl_uint R_MASK = 0xFFu;
@@ -154,6 +156,8 @@ private:
 	cl_uint radixDataSize;// =  (1<<14);
 
 	//radix methods
+	void initializeMortonMem();
+	void releaseRadixMem();
 	void computeRadixGroups();
 	void computeHistogram(int currentByte);
 	void computeRankingNPermutations(int currentByte, size_t groupSize);

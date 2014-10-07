@@ -1,169 +1,143 @@
-
-
-/*
-
-Octree findBaseNode(Octree * treeNodes, Octree node,Ray ray, float t1)
-{
-
-
-	if(node.childrenIndices[0] == -1)
-	{
-		HitReturn hitRet = hitBox(ray,node.boundingBox );
-
-	}
-	else
-	{
-		Octree currentNode;
-		for(int i = 0; i < 8; i++)
-		{
-			currentNode = treeNodes[node.childrenIndices[i]];
-			if(currentNode.numberOfObjects != 0)
-			{
-				HitReturn hitRet = hitBox(ray,currentNode.boundingBox )
-				if(hitRet.hit && hitRet.t1 < t1 && currentNode.numberOfObjects != 0 && currentNode.childrenIndices[i] != -1)
-				{
-					t1 = hitRet.min;
-				}
-			}
-
-		}
-	}
-
-	
-}
-
-*/
-
-/*
 __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dstImage, 
-	sampler_t sampler, int width, int height, __global Object * objects,
-	__global Light * light, int numberOfObjects, int numberOfLights, BBox box,
-	__global Octree * treeNodes
-	Camera camera
-	)
-{
-	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
-	Ray ray = generateRay(outImageCoord, width, height, camera);
-	uint4 outColor = getColor();
-
-	HitReturn hitCheck = hitBBox(ray,box.min,box.max);
-
-	if(hitCheck.hit)
-	{
-		
-		for(int i = 0; i < 8; i++)
-		{
-			Octree currentNode = treeNodes[treeNodes[0].childrenIndices[i]];
-			if(hitBBox, currentNode.boundingBox.min,currentNode.boundingBox.max )
-			{
-				bool complete = false;
-				do
-				{
-					for(int i = 0; i < 8; i++)
-					{
-
-					}
-				}while()
-			}
-		}
-
-	}
-	write_imageui(dstImage, outImageCoord, outColor);
-}
-
-*/
-
-
-__kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dstImage, 
-	sampler_t sampler, int width, int height, __global Object * objects,
+	sampler_t sampler, int width, int height, __global Object * objects, __global Triangle * triangles, 
 	__global Light * light, int numberOfObjects, int numberOfLights, BBox box,
 	__global int * cells, int nx, int ny, int nz,
 	__global int * cellIndices, __global int * objectIndices,
-	Camera camera
-	)
+	Camera camera, int samples, int samplesSquared)
 {
 	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
-	Ray ray = generateRay(outImageCoord, width, height, camera);
-	uint4 outColor = getColor();
+	uint4 outColor = (uint4)(0,0,0,255 * 4);
 
-	HitReturn hitCheck = hitBBox(ray,box.min,box.max);
-
-	if(hitCheck.hit)
-	{
-		
-		int3 currentCell;
-		float3 cellDimensions = (float3)(nx,ny,nz);
-		if(!insideBBox(ray.origin,box.min,box.max ))
-		{
-			float3 p = ray.origin + (hitCheck.minValue * ray.direction);
-			currentCell = (int3)(convert_int3(clamp((p - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), cellDimensions - 1.0f)));
-
-		}
-		else
-		{
-			currentCell = (int3)(convert_int3(clamp((ray.origin - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
-		}
-		int cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
 
 		
-		float3 delta = (box.max - box.min)/cellDimensions ;
-		//float3 next = (float3)(box.min.x + (currentCell.x + 1) * delta.x,box.min.y + (iy + 1) * delta.y,box.min.z + (iz + 1) * delta.z);
-		float3 next = (convert_float3(currentCell) + 1.0f) * delta;
-		bool run =  true;
-		
-		while(run)
+
+
+		for(int row = 0; row < samplesSquared; row++)
 		{
-			int cellObjectNumber = cellIndices[cellIndex]- cellIndices[cellIndex-1];
-			//cellObjectNums[cellIndex] = cellObjectNumber;
-			float lastDistance = 100000000.0f;
-			for(int i = 0; i <  cellObjectNumber; i++ )
+			for(int column = 0; column < samplesSquared; column++ )
 			{
-				int objectIndex = objectIndices[cellIndices[cellIndex-1] + i]-1;
-
-				if(objects[objectIndex].position.w > 0.0)
+				int2 dim = (int2)(column,row);
+				Ray ray = generateRay(outImageCoord, width, height, camera,dim,samples);
+				HitReturn hitCheck = hitBBox(ray,box.min,box.max);
+				if(hitCheck.hit)
 				{
-					SphereInfo sphereInfo = sphereIntersection(ray,objects[objectIndex].position.xyz,objects[objectIndex].position.w);
-					if(sphereInfo.hasIntersection && sphereInfo.distanceToIntersection < lastDistance)
+					
+					for(int i = 0; i < 12; i++)
 					{
-						outColor = (uint4)adsLight(objects[objectIndex], light[0], sphereInfo);
-						lastDistance = sphereInfo.distanceToIntersection;
-						run = false;
 
+						
+						TriangleInfo triInfo = triangleCollision(ray,triangles[objects[i].triangleIndex]);
+						if(triInfo.hasIntersection)
+						{
+							outColor += (uint4)adsLightT(objects[i], light[0], triInfo);
+						}
 					}
 				}
+
 			}
-			if(run)
+		}
+	outColor /=samples;
+	write_imageui(dstImage, outImageCoord, outColor);
+
+
+	/*			if(hitCheck.hit)
+		{
+			
+			for(int i = 0; i < 12; i++)
 			{
-				if(next.x  < next.y && next.x < next.z)
+
+				
+				TriangleInfo triInfo = triangleCollision(ray,triangles[objects[i].triangleIndex]);
+				if(triInfo.hasIntersection)
 				{
-					next.x += delta.x;
-					currentCell.x += 1;
-					run = (currentCell.x != cellDimensions.x);
-					
+					outColor = (uint4)adsLightT(objects[i], light[0], triInfo);
 				}
-				else
+			}
+
+	int3 currentCell;
+			float3 cellDimensions = (float3)(nx,ny,nz);
+			if(!insideBBox(ray.origin,box.min,box.max ))
+			{
+				float3 p = ray.origin + (hitCheck.minValue * ray.direction);
+				currentCell = (int3)(convert_int3(clamp((p - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), cellDimensions - 1.0f)));
+
+			}
+			else
+			{
+				currentCell = (int3)(convert_int3(clamp((ray.origin - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
+			}
+			int cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+
+			
+			float3 delta = (box.max - box.min)/cellDimensions ;
+			//float3 next = (float3)(box.min.x + (currentCell.x + 1) * delta.x,box.min.y + (iy + 1) * delta.y,box.min.z + (iz + 1) * delta.z);
+			float3 next = (convert_float3(currentCell) + 1.0f) * delta;
+			bool run =  true;
+			
+			while(run)
+			{
+				int cellObjectNumber = cellIndices[cellIndex]- cellIndices[cellIndex-1];
+				//cellObjectNums[cellIndex] = cellObjectNumber;
+				float lastDistance = 100000000.0f;
+				for(int i = 0; i <  cellObjectNumber; i++ )
 				{
-					if(next.y < next.z)
+					int objectIndex = objectIndices[cellIndices[cellIndex-1] + i]-1;
+
+					if(objects[objectIndex].position.w == 0.0)
 					{
-						next.y += delta.y;
-						currentCell.y += 1;
-						run = (currentCell.y != cellDimensions.y);
+						TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
+						if(triInfo.hasIntersection)
+						{
+							outColor = (uint4)adsLightT(objects[objectIndex], light[0], triInfo);
+							lastDistance = triInfo.distanceFromIntersection;
+							run = false;
+						}
+
 					}
 					else
 					{
-						next.z += delta.z;
-						currentCell.z += 1;
-						run = (currentCell.z != cellDimensions.z);
+						SphereInfo sphereInfo = sphereIntersection(ray,objects[objectIndex].position.xyz,objects[objectIndex].position.w);
+						if(sphereInfo.hasIntersection && sphereInfo.distanceToIntersection < lastDistance)
+						{
+							outColor = (uint4)adsLightS(objects[objectIndex], light[0], sphereInfo);
+							lastDistance = sphereInfo.distanceToIntersection;
+							run = false;
+
+						}
 					}
-				
 				}
-				cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+				if(run)
+				{
+					if(next.x  < next.y && next.x < next.z)
+					{
+						next.x += delta.x;
+						currentCell.x += 1;
+						run = (currentCell.x != cellDimensions.x);
+						
+					}
+					else
+					{
+						if(next.y < next.z)
+						{
+							next.y += delta.y;
+							currentCell.y += 1;
+							run = (currentCell.y != cellDimensions.y);
+						}
+						else
+						{
+							next.z += delta.z;
+							currentCell.z += 1;
+							run = (currentCell.z != cellDimensions.z);
+						}
+					
+					}
+					cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+				}
 			}
-		}
-
-
+	
 	}
-	write_imageui(dstImage, outImageCoord, outColor);
+	*/
+	//write_imageui(dstImage, outImageCoord, outColor);
 
 }
 

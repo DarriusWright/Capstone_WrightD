@@ -15,6 +15,14 @@ typedef struct
 
 }Material;
 
+typedef struct 
+{
+
+	uint code;
+	uint index;
+
+}MortonCode;
+
 
 
 typedef struct

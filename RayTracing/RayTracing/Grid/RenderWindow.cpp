@@ -5,12 +5,12 @@ CL_DEVICE_MAX_WORK_ITEM_SIZES - 1024, 1024, 64
 */
 const cl_float RenderWindow::MIN = 10000000.0f;
 const cl_float RenderWindow::MAX = -10000000.0f;
-const cl_uint RenderWindow::NUMBER_OF_SPHERES = 20;
 
-RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0,0,300), glm::vec3(0,0,0))
+RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,50.0f), glm::vec3(0,0,0)) , random(Random::getInstance())
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
+	setSamples(4);
 	construct();
 }
 RenderWindow::~RenderWindow(void)
@@ -28,18 +28,81 @@ RenderWindow::~RenderWindow(void)
 	clReleaseProgram(program);
 	clReleaseContext(context);
 
-	releaseUpdate();
+	//	releaseUpdate();
+
+}
+void RenderWindow::setSamples(int samples)
+{
+	this->samples = samples;
+	this->sampleSquared = sqrt(samples);
+}
+void RenderWindow::addMesh(std::string fileName)
+{
+	Assimp::Importer importer;
+	const aiScene * scene = importer.ReadFile(fileName, flags);
+	aiMesh * mesh = (scene->mMeshes[0]);
+
+	std::vector<cl_uint> modelIndices;
+	std::vector<glm::vec3> modelVertices;
+	modelVertices.reserve(mesh->mNumVertices);
+
+	if (mesh->HasFaces())
+	{
+		int faceCount = mesh->mNumFaces;
+		for (UINT i = 0; i < faceCount; i++)
+		{
+			aiFace * face = &mesh->mFaces[i];
+			for (UINT j = 0; j < face->mNumIndices; j++)
+			{
+				modelIndices.push_back(face->mIndices[j]);
+			}
+		}
+	}
+
+
+	for (size_t i = 0; i < mesh->mNumVertices; i++)
+	{
+		modelVertices.push_back(glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[i])));
+	}
+
+	if(triangles.size())
+		clReleaseMemObject(trianglesMem);
+
+	//int triangleInitSize = triangles.size();
+	triangles.reserve(modelIndices.size() / 3);
+	objects.reserve(modelIndices.size() / 3);
+	Random random = Random::getInstance();
+
+	Material material = {{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
+	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
+	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}};
+
+	glm::vec3 position(0,0,10);
+	for (UINT i = 0; i < modelIndices.size(); i+=3)
+	{
+		Triangle tri;
+		tri.v0 = position + glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i]]));
+		tri.v1 = position + glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i + 1]]));
+		tri.v2 = position + glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i + 2]]));
+
+		Object o = createObjectFromTriangle(tri);
+		o.triangleIndex = triangles.size();
+		o.index = objects.size();
+		o.material = material;
+		objects.push_back(o);
+		triangles.push_back(tri);
+
+	}
+
+	//trianglesMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Triangle)* triangles.size(), &triangles[0],&err);
 
 }
 void RenderWindow::resizeEvent(QResizeEvent * e)
 {
-	//globalWorkSize[0] = roundUp( localWorkSize[0], width());
-	//globalWorkSize[1] = roundUp( localWorkSize[0], height());
-	windowWidth = width();
-	windowHeight = height();
-	delete [] readBuffer;
-	readBuffer = new uchar [width() * height() * 4];
-
+	//windowWidth = width();
+	//windowHeight = height();
+	//delete [] readBuffer;
+	//readBuffer = new uchar [width() * height() * 4];
 }
 void RenderWindow::addLight(Light light)
 {
@@ -51,58 +114,88 @@ void RenderWindow::addObject(Object object)
 	objects.push_back(object);
 	numberOfObjects++;
 }
+void RenderWindow::addSphere()
+{
+	Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
+	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
+	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
+	glm::vec4(random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(30.0f,50.0f),30.0f)};
+	//spheres.push_back(sphere);
+
+	Object object; 
+
+	BBox b = {
+		glm::vec3(sphere.getMinX(),
+		sphere.getMinY(),
+		sphere.getMinZ()),0.0f,
+		glm::vec3(
+		sphere.getMaxX(),
+		sphere.getMaxY(),
+		sphere.getMaxZ()),0.0f
+
+	};
+	object.material = sphere.material;
+	object.box = b;
+	//cl_int2 indices = {0,0};
+	object.triangleIndex =-1;
+	object.index = objects.size();
+	object.position = sphere.position;
+
+
+	objects.push_back(object);
+}
 void RenderWindow::construct()
 {
 	setMinimumSize(640,480);
 
 	layout = new QHBoxLayout();
 	Light light = {{{0.925,0.835,0.102}, {0.73,0.724,0.934},{0.2,0.52,0.96}}, {2.0f,2.0f,200.0f}};
+	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/basicCube.obj");
+
+	//Random random = Random::getInstance();
+	//objects.reserve(NUMBER_OF_SPHERES);
+	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
+	//{
+
+	//	Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
+	//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
+	//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
+	//	glm::vec4(random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(30.0f,50.0f),30.0f)};
+	//	//spheres.push_back(sphere);
+
+	//	Object object; 
+
+	//	BBox b = {
+	//		glm::vec3(sphere.getMinX(),
+	//		sphere.getMinY(),
+	//		sphere.getMinZ()),0.0f,
+	//		glm::vec3(
+	//		sphere.getMaxX(),
+	//		sphere.getMaxY(),
+	//		sphere.getMaxZ()),0.0f
+
+	//	};
+	//	object.material = sphere.material;
+	//	object.box = b;
+	//	//cl_int2 indices = {0,0};
+	//	object.triangleIndex =-1;
+	//	object.index = i;
+	//	object.position = sphere.position;
 
 
-	Random random = Random::getInstance();
-	for(int i = 0; i < NUMBER_OF_SPHERES; i++)
-	{
+	//	objects.push_back(object);
+	//
 
-		Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
-		{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
-		{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
-		glm::vec4(random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(30.0f,50.0f),30.0f)};
-		//spheres.push_back(sphere);
+	//	//box.min[0] = glm::min((sphere.getMinX() + sphere.position[0]) ,box.min[0]);
+	//	//box.min[1] = glm::min(sphere.getMinY()  +  sphere.position[1],box.min[1]);
+	//	//box.min[2] = glm::min(sphere.getMinZ()	 + sphere.position[2],box.min[2]);
 
-		Object object; 
-
-		BBox b = {
-			glm::vec3(sphere.getMinX(),
-			sphere.getMinY(),
-			sphere.getMinZ()),0.0f,
-			glm::vec3(
-			sphere.getMaxX(),
-			sphere.getMaxY(),
-			sphere.getMaxZ()),0.0f
-
-		};
-		object.material = sphere.material;
-		object.box = b;
-		cl_int2 indices = {0,0};
-		object.triangleIndices =indices;
-		object.index = i;
-		object.position = sphere.position;
+	//	//box.max[0] = glm::max(sphere.getMaxX()+ sphere.position[0],box.max[0]);
+	//	//box.max[1] = glm::max(sphere.getMaxY()+  sphere.position[1],box.max[1]);
+	//	//box.max[2] = glm::max(sphere.getMaxZ()+ sphere.position[2],box.max[2]);
 
 
-		objects.push_back(object);
-		float x;
-		float y;
-
-		box.min[0] = glm::min((sphere.getMinX() + sphere.position[0]) ,box.min[0]);
-		box.min[1] = glm::min(sphere.getMinY()  +  sphere.position[1],box.min[1]);
-		box.min[2] = glm::min(sphere.getMinZ()	 + sphere.position[2],box.min[2]);
-
-		box.max[0] = glm::max(sphere.getMaxX()+ sphere.position[0],box.max[0]);
-		box.max[1] = glm::max(sphere.getMaxY()+  sphere.position[1],box.max[1]);
-		box.max[2] = glm::max(sphere.getMaxZ()+ sphere.position[2],box.max[2]);
-
-
-	}
+	//}
 
 
 
@@ -117,63 +210,95 @@ void RenderWindow::construct()
 	windowWidth = width();
 	windowHeight = height();
 	readBuffer = new uchar [windowWidth * windowHeight * 4];
+
 	initializeCL();
 
-	connect(&updateTimer,SIGNAL(timeout()),this,SLOT(updateScene()));
-	updateTimer.start();
+	//connect(&updateTimer,SIGNAL(timeout()),this,SLOT(updateScene()));
+	//updateTimer.start();
+
+	//for (int i = 0; i < 5; i++)
+	//{
+	//	camera.moveLeft();
+
+	//}
 
 	QImage r(readBuffer,windowWidth,windowHeight,QImage::Format::Format_RGBA8888);
 	readImage  =r;
 }
 void RenderWindow::updateDrawScene()
 {
+	// invalid mem object on the second run... check it out.
+	//err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
+	//err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
+	//err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_sampler), &sampler);
+	//err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
+	//err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
+	//err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem),(objects.size()) ?  &objectMem : 0);
+	//err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem),(triangles.size()) ?  &trianglesMem : 0);
+	//err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem),(lights.size()) ?  &lightMem : 0);
+	//err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
+	//err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
+	//err |= clSetKernelArg(drawSceneKernel,10, sizeof(BBox), &box);
+	//err |= clSetKernelArg(drawSceneKernel, 11, sizeof(cl_mem), &cellsMem);
+	//err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_int), &nx);
+	//err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_int), &ny);
+	//err |= clSetKernelArg(drawSceneKernel,14 , sizeof(cl_int), &nz);
+	//err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &cellIndicesMem);
+	//err |= clSetKernelArg(drawSceneKernel, 16, sizeof(cl_mem), &objectIndicesMem);
+	//err |= clSetKernelArg(drawSceneKernel, 17, sizeof(Camera), &camera);
+
 	err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
 	err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
 	err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_sampler), &sampler);
 	err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
 	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
 	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &lightMem);
-	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_int), &numberOfObjects);
-	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfLights);
-	err |= clSetKernelArg(drawSceneKernel,9, sizeof(BBox), &box);
-	err |= clSetKernelArg(drawSceneKernel, 10, sizeof(cl_mem), &cellsMem);
-	err |= clSetKernelArg(drawSceneKernel,11 , sizeof(cl_int), &nx);
-	err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_int), &ny);
-	err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_int), &nz);
-	err |= clSetKernelArg(drawSceneKernel, 14, sizeof(cl_mem), &cellIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &objectIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 16, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &trianglesMem);
+
+	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem), &lightMem);
+	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
+	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
+	err |= clSetKernelArg(drawSceneKernel,10, sizeof(BBox), &box);
+	err |= clSetKernelArg(drawSceneKernel, 11, sizeof(cl_mem), &cellsMem);
+	err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_int), &nx);
+	err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_int), &ny);
+	err |= clSetKernelArg(drawSceneKernel,14 , sizeof(cl_int), &nz);
+	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &cellIndicesMem);
+	err |= clSetKernelArg(drawSceneKernel, 16, sizeof(cl_mem), &objectIndicesMem);
+	err |= clSetKernelArg(drawSceneKernel, 17, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawSceneKernel,18 , sizeof(cl_int), &samples);
+	err |= clSetKernelArg(drawSceneKernel,19 , sizeof(cl_int), &sampleSquared);
 
 
-	clEnqueueNDRangeKernel(queue, drawSceneKernel, 2,
-		NULL, globalWorkSize, 
+
+
+
+
+	err |= clEnqueueNDRangeKernel(queue, drawSceneKernel, 2,
+		NULL, &globalWorkSize[0], 
 		NULL, 0, NULL, NULL);
 
-	clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
+	err |= clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
 }
 void RenderWindow::updateScene()
 {
-	//releaseUpdate();
+	releaseUpdate();
 	timer.start();	
 	handleKeyInput();
 	camera.update();
 
 	// 0
-	//updateBBox();
-	//updateCells();
-
 	profileTimer.start();
+
+	updateBBox();
+	updateCells();
 	updateDrawScene();
 
 	imageLabel.setPixmap(QPixmap::fromImage(readImage));
 	float drawTimer = profileTimer.elapsed()/1000.0f;
 
-	float time = (timer.elapsed()/1000.0f);
-	float frames = 1.0f/time;
-	setWindowTitle( "Time : " + QString::number(time) + "Frames : "+ QString::number(frames));
-
-	//safasdfasdfasdf
+	interval = (timer.elapsed()/1000.0f);
+	fps = 1.0f/interval;
 
 }
 void RenderWindow::updateBBox()
@@ -181,25 +306,33 @@ void RenderWindow::updateBBox()
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 
 	box = b;
-	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],0);
-	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light), &lights[0],0);
-	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,sizeof(BBox), NULL,&err);
-	lengthOfObjects = objects.size();
-	clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
-	clSetKernelArg(sceneBBoxKernel,1 , sizeof(cl_mem), &objectMem);
-	clSetKernelArg(sceneBBoxKernel,2 , sizeof(cl_int), &lengthOfObjects);
-	clSetKernelArg(sceneBBoxKernel,3 , sizeof(cl_float3) * objects.size(),NULL);
-	clSetKernelArg(sceneBBoxKernel,4 , sizeof(cl_float3) * objects.size(),NULL);
+	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
+	if(triangles.size())
+		trianglesMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Triangle)* triangles.size(), &triangles[0],&err);
+	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light) * lights.size(), &lights[0],&err);
+	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,sizeof(BBox), &box,&err);
+
+	//err |= clEnqueueReadBuffer(queue,trianglesMem, CL_TRUE,0, sizeof(Triangle) * triangles.size(), &triangles[0], 0,0,0);
+
+	cl_int lengthOfObjects = objects.size();
+
+	err |= clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
+	err |= clSetKernelArg(sceneBBoxKernel,1 , sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(sceneBBoxKernel,2 , sizeof(cl_int), &lengthOfObjects);
+	err |= clSetKernelArg(sceneBBoxKernel,3 , sizeof(cl_mem),&minMem);
+	err |= clSetKernelArg(sceneBBoxKernel,4 , sizeof(cl_mem) , &maxMem);
+
+	if(err != CL_SUCCESS) {
+		perror("Couldn't set the sceneBBoxKernel argument");
+		exit(1);   
+	} 
 
 	sceneBBoxGlobalWorkSize = objects.size();
-	clEnqueueNDRangeKernel(queue, sceneBBoxKernel, 1 ,
+	err |= clEnqueueNDRangeKernel(queue, sceneBBoxKernel, 1 ,
 		NULL, &sceneBBoxGlobalWorkSize, 
 		NULL, 0, NULL, NULL);
 
-	clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
-
-
-
+	err |=clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
 
 }
 void RenderWindow::updateCells()
@@ -229,23 +362,28 @@ void RenderWindow::updateCells()
 	sumMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int), &numberOfCellObjects,&err);
 
 
-	clSetKernelArg(initializeCellsKernel,0 , sizeof(cl_mem), &objectMem);
-	clSetKernelArg(initializeCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
-	clSetKernelArg(initializeCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
-	clSetKernelArg(initializeCellsKernel,3 , sizeof(cl_int), &nx);
-	clSetKernelArg(initializeCellsKernel,4 , sizeof(cl_int), &ny);
-	clSetKernelArg(initializeCellsKernel,5 , sizeof(cl_int), &nz);
-	clSetKernelArg(initializeCellsKernel, 6, sizeof(cl_mem),&cellsBoxMem );
-	clSetKernelArg(initializeCellsKernel, 7, sizeof(cl_mem), &sumMem );
+	err|=clSetKernelArg(initializeCellsKernel,0 , sizeof(cl_mem), &objectMem);
+	err|=clSetKernelArg(initializeCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
+	err|=clSetKernelArg(initializeCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
+	err|=clSetKernelArg(initializeCellsKernel,3 , sizeof(cl_int), &nx);
+	err|=clSetKernelArg(initializeCellsKernel,4 , sizeof(cl_int), &ny);
+	err|=clSetKernelArg(initializeCellsKernel,5 , sizeof(cl_int), &nz);
+	err|=clSetKernelArg(initializeCellsKernel, 6, sizeof(cl_mem),&cellsBoxMem );
+	err|=clSetKernelArg(initializeCellsKernel, 7, sizeof(cl_mem), &sumMem );
+
+	if(err != CL_SUCCESS) {
+		perror("Couldn't set the initializeCellsKernel argument");
+		exit(1);   
+	}
 
 
-	clEnqueueNDRangeKernel(queue, initializeCellsKernel, 2 ,
+	err|=clEnqueueNDRangeKernel(queue, initializeCellsKernel, 2 ,
 		NULL, initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
-	clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * numCells, &cells[0],0,0,0);
-	clEnqueueReadBuffer(queue,cellsBoxMem,CL_TRUE,0, sizeof(BBox) * numCells, &cBoxes[0],0,0,0);
-	clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
+	err|=clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * numCells, &cells[0],0,0,0);
+	err|=clEnqueueReadBuffer(queue,cellsBoxMem,CL_TRUE,0, sizeof(BBox) * numCells, &cBoxes[0],0,0,0);
+	err|=clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
 
 
 	cellIndices.resize(numCells);
@@ -262,47 +400,29 @@ void RenderWindow::updateCells()
 
 
 	cellIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, cellIndices.size() * sizeof(cl_int),&cellIndices[0], &err);
-	objectIndicesMem = clCreateBuffer(context,CL_MEM_READ_WRITE, sizeof(cl_int) * numberOfCellObjects, NULL, &err );
-	cellIncrementsMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_int)* numCells, NULL, &err);
+	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
+	cellIncrementsMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int)* numCells, &cellIncrements[0], &err);
 
 
-	clSetKernelArg(findObjectCellsKernel,0 , sizeof(cl_mem), &objectMem);
-	clSetKernelArg(findObjectCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
-	clSetKernelArg(findObjectCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
-	clSetKernelArg(findObjectCellsKernel,3 , sizeof(cl_mem) , &cellIndicesMem);
-	clSetKernelArg(findObjectCellsKernel,4 , sizeof(cl_mem)  , &objectIndicesMem);
-	clSetKernelArg(findObjectCellsKernel,5 , sizeof(cl_mem) , &cellsBoxMem);
-	clSetKernelArg(findObjectCellsKernel,6 , sizeof(cl_mem) , &cellIncrementsMem);
-	clEnqueueNDRangeKernel(queue, findObjectCellsKernel, 2 ,
+	err|=clSetKernelArg(findObjectCellsKernel,0 , sizeof(cl_mem), &objectMem);
+	err|=clSetKernelArg(findObjectCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
+	err|=clSetKernelArg(findObjectCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
+	err|=clSetKernelArg(findObjectCellsKernel,3 , sizeof(cl_mem) , &cellIndicesMem);
+	err|=clSetKernelArg(findObjectCellsKernel,4 , sizeof(cl_mem)  , &objectIndicesMem);
+	err|=clSetKernelArg(findObjectCellsKernel,5 , sizeof(cl_mem) , &cellsBoxMem);
+	err|=clSetKernelArg(findObjectCellsKernel,6 , sizeof(cl_mem) , &cellIncrementsMem);
+	err|=clEnqueueNDRangeKernel(queue, findObjectCellsKernel, 2 ,
 		NULL, initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
-	//clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
-	//clEnqueueReadBuffer(queue,cellIncrementsMem,CL_TRUE,0,sizeof(int) * numCells, &cellIncrements[0],0,0,0);
-
-	//vector<cl_int>tObjectIndices;
-	//tObjectIndices.resize(numberOfCellObjects);
-
-	//for(int j = 0; j < cBoxes.size(); j++)
-	//{
-	//	for (int i = 0; i < objects.size(); i++)
-	//	{
-	//		if(objectBoxCollided(cBoxes[j], objects[i]))
-	//		{
-	//			int currentIndex = (j == 0) ?  0 : cellIndices[j-1];
-	//			while(currentIndex < objectIndices.size() && objectIndices[currentIndex] != 0)
-	//			{
-	//				currentIndex++;
-	//			}
-	//			if(currentIndex < objectIndices.size())
-	//				objectIndices[currentIndex] = i + 1;
-	//		}
-	//	}
-	//}
-
-	//	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
-
-
+}
+float RenderWindow::getFPS()
+{
+	return fps;
+}
+float RenderWindow::getInterval()
+{
+	return interval;
 }
 void RenderWindow::releaseUpdate()
 {
@@ -315,12 +435,19 @@ void RenderWindow::releaseUpdate()
 	clReleaseMemObject(objectMem);//
 	clReleaseMemObject(lightMem);//
 	clReleaseMemObject(cellsMem);//
+	clReleaseMemObject(cellsBoxMem);//
 	clReleaseMemObject(objectIndicesMem);//
 	clReleaseMemObject(cellIndicesMem);//
 	clReleaseMemObject(cellIncrementsMem);//
-	clReleaseMemObject(cellsBoxMem);//
-	clReleaseMemObject(minMem);//
-	clReleaseMemObject(maxMem);//
+	clReleaseMemObject(boundingBoxMem);
+	clReleaseMemObject(trianglesMem);//
+
+	//clReleaseMemObject(minMem);//
+	//clReleaseMemObject(maxMem);//
+	//if(triangles.size())
+	//{
+	//	clReleaseMemObject(trianglesMem);//
+	//}
 
 }
 cl_program RenderWindow::buildProgram(std::string files [], int numberOfFiles)
@@ -457,14 +584,16 @@ void RenderWindow::initializeProgram()
 }
 void RenderWindow::initializeSceneBBox()
 {
-
-
 	cl_int lengthOfObjects = objects.size();
 	int globalObjectSize = nextPowerOfTwo(objects.size());
 
+	vector<cl_float3> minArr;
+	minArr.resize(globalObjectSize);
+	vector<cl_float3> maxArr;
+	maxArr.resize(globalObjectSize);
 
-	minMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float3) * globalObjectSize, NULL,&err);
-	maxMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float3) * globalObjectSize, NULL,&err);
+	minMem = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(cl_float3) * globalObjectSize, &minArr[0],&err);
+	maxMem = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(cl_float3) * globalObjectSize, &maxArr[0],&err);
 	//finish setting up mem stuff in header file...
 
 	err |= clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
@@ -473,6 +602,11 @@ void RenderWindow::initializeSceneBBox()
 	err |= clSetKernelArg(sceneBBoxKernel,3 , sizeof(cl_mem),&minMem);
 	err |= clSetKernelArg(sceneBBoxKernel,4 , sizeof(cl_mem) , &maxMem);
 
+	if(err != CL_SUCCESS) {
+		perror("Couldn't set the sceneBBoxKernel argument");
+		exit(1);   
+	} 
+
 
 	queue = clCreateCommandQueue(context, device, 0, &err);
 	if(err < 0) {
@@ -480,10 +614,6 @@ void RenderWindow::initializeSceneBBox()
 		exit(1);   
 	}
 
-	if(err != CL_SUCCESS) {
-		perror("Couldn't set the sceneBBoxKernel argument");
-		exit(1);   
-	} 
 
 	sceneBBoxGlobalWorkSize = nextPowerOfTwo(objects.size());
 	err = clEnqueueNDRangeKernel(queue, sceneBBoxKernel, 1 ,
@@ -494,6 +624,7 @@ void RenderWindow::initializeSceneBBox()
 
 
 }
+const cl_uint RenderWindow::NUMBER_OF_SPHERES = 2;
 void RenderWindow::initializeCells()
 {
 	initCellWorkSize[0] = objects.size();
@@ -511,20 +642,16 @@ void RenderWindow::initializeCells()
 	numCells = nx * ny * nz;
 	numCells = numCells;
 	numberOfCellObjects = 0;
-	vector<cl_uint> cells;
+	//vector<cl_uint> cells;
 	cells.resize(numCells);
-	vector<BBox> cBoxes;
+	//vector<BBox> cBoxes;
 	cBoxes.resize(numCells);
 	initCellWorkSize[1] = numCells;
 	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * numCells, &cells[0],&err);
 	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(BBox) * numCells, &cBoxes[0],&err);
 	sumMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int), &numberOfCellObjects,&err);
 
-	//vector<Octree> nodes;
-	//nodes.resize(treeManager->octreeNodes.size());
-	//cl_mem treeMem = clCreateBuffer(context,CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(Octree) * treeManager->octreeNodes.size(), &treeManager->octreeNodes[0],&err);;
-	//cl_mem treeAccessMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(Octree) * treeManager->octreeNodes.size(), &nodes[0],&err);;
-	//int sizeoftree = treeManager->octreeNodes.size();
+
 	err |= clSetKernelArg(initializeCellsKernel,0 , sizeof(cl_mem), &objectMem);
 	err |= clSetKernelArg(initializeCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
 	err |= clSetKernelArg(initializeCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
@@ -533,14 +660,6 @@ void RenderWindow::initializeCells()
 	err |= clSetKernelArg(initializeCellsKernel,5 , sizeof(cl_int), &nz);
 	err |= clSetKernelArg(initializeCellsKernel, 6, sizeof(cl_mem),&cellsBoxMem );
 	err |= clSetKernelArg(initializeCellsKernel, 7, sizeof(cl_mem), &sumMem );
-	//err |= clSetKernelArg(initializeCellsKernel, 8, sizeof(cl_mem), &treeMem );
-	//err |= clSetKernelArg(initializeCellsKernel, 9, sizeof(cl_mem), &treeAccessMem );
-	//err |= clSetKernelArg(initializeCellsKernel, 10, sizeof(cl_int), &sizeoftree);
-
-
-
-
-	//err |= clSetKernelArg(initializeCellsKernel, 7, sizeof(cl_mem),&sumMem);
 
 	if(err != CL_SUCCESS) {
 		perror("Couldn't set the initializeCellsKernel argument");
@@ -550,34 +669,18 @@ void RenderWindow::initializeCells()
 	err = clEnqueueNDRangeKernel(queue, initializeCellsKernel, 2 ,
 		NULL, initCellWorkSize, 
 		NULL, 0, NULL, NULL);
-	//int theS;
 	clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * numCells, &cells[0],0,0,0);
 	clEnqueueReadBuffer(queue,cellsBoxMem,CL_TRUE,0, sizeof(BBox) * numCells, &cBoxes[0],0,0,0);
 	clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
-	//clEnqueueReadBuffer(queue,treeAccessMem,CL_TRUE,0, sizeof(Octree) * treeManager->octreeNodes.size(), &nodes[0],0,0,0);
 
-	vector<int> cellIndices;
+
 	cellIndices.resize(numCells);
 
-	//timer.start();
 	cellIndices[0] = cells[0]; 
 	for (int i = 1; i < numCells; i++)
 	{
 		cellIndices[i] = cells[i] + cellIndices[i-1];
 	}
-	//cout << timer.elapsed() << endl;
-
-	//vector<cl_uint> cellsTest;
-	//cellsTest.resize(numCells);
-	//for (int i = 0; i < objects.size(); i++)
-	//{
-	//	for (int j = 0; j < numCells; j++)
-	//	{
-	//		if(bboxCollided(objects[i].box, cBoxes[j]))
-	//		cellsTest[j]++;
-	//	}
-	//}
-
 
 	cellIncrements.resize(numCells);
 	objectIndices.resize(numberOfCellObjects);
@@ -607,8 +710,8 @@ void RenderWindow::initializeCellObjects()
 		NULL, initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
-//	clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
-//	clEnqueueReadBuffer(queue,cellIncrementsMem,CL_TRUE,0,sizeof(int) * numCells, &cellIncrements[0],0,0,0);
+	//	clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
+	//	clEnqueueReadBuffer(queue,cellIncrementsMem,CL_TRUE,0,sizeof(int) * numCells, &cellIncrements[0],0,0,0);
 
 }
 void RenderWindow::initializeDrawScene()
@@ -620,18 +723,21 @@ void RenderWindow::initializeDrawScene()
 	err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
 	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
 	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &lightMem);
-	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_int), &numberOfObjects);
-	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfLights);
-	err |= clSetKernelArg(drawSceneKernel,9, sizeof(BBox), &box);
-	err |= clSetKernelArg(drawSceneKernel, 10, sizeof(cl_mem), &cellsMem);
-	err |= clSetKernelArg(drawSceneKernel,11 , sizeof(cl_int), &nx);
-	err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_int), &ny);
-	err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_int), &nz);
-	err |= clSetKernelArg(drawSceneKernel, 14, sizeof(cl_mem), &cellIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &objectIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 16, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &trianglesMem);
 
+	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem), &lightMem);
+	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
+	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
+	err |= clSetKernelArg(drawSceneKernel,10, sizeof(BBox), &box);
+	err |= clSetKernelArg(drawSceneKernel, 11, sizeof(cl_mem), &cellsMem);
+	err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_int), &nx);
+	err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_int), &ny);
+	err |= clSetKernelArg(drawSceneKernel,14 , sizeof(cl_int), &nz);
+	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &cellIndicesMem);
+	err |= clSetKernelArg(drawSceneKernel, 16, sizeof(cl_mem), &objectIndicesMem);
+	err |= clSetKernelArg(drawSceneKernel, 17, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawSceneKernel,18 , sizeof(cl_int), &samples);
+	err |= clSetKernelArg(drawSceneKernel,19 , sizeof(cl_int), &sampleSquared);
 
 
 	if(err != CL_SUCCESS) {
@@ -653,16 +759,6 @@ void RenderWindow::initializeDrawScene()
 		exit(1);   
 	}
 
-
-
-
-	if(err != CL_SUCCESS)
-	{
-		cout << "Error creating Object" << endl;
-		exit(-1);
-	}
-
-
 	origin[0] = 0;
 	origin[1] = 0;
 	origin[2] = 0;
@@ -677,10 +773,9 @@ void RenderWindow::initializeDrawScene()
 		exit(-1);
 	}
 }
-
 void RenderWindow::initializeMemory()
 {
-		cl_image_format clImageFormat;
+	cl_image_format clImageFormat;
 	clImageFormat.image_channel_order = CL_RGBA;
 	clImageFormat.image_channel_data_type = CL_UNSIGNED_INT8;
 
@@ -692,14 +787,24 @@ void RenderWindow::initializeMemory()
 		exit(-1);
 	}
 
-	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light)* objects.size(), &lights[0],&err);
+	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light)* lights.size(), &lights[0],&err);
 	if(err != CL_SUCCESS)
 	{
 		cout << "Error creating Lights Object" << endl;
 		exit(-1);
 	}
 
+	if(triangles.size() > 0)
+	{
 
+		trianglesMem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Triangle) * triangles.size(), &triangles[0], &err);
+
+		if(err != CL_SUCCESS)
+		{
+			cout << "Error creating triangle Object" << endl;
+			exit(-1);
+		}
+	}
 	clImage = clCreateImage2D(context, CL_MEM_READ_ONLY , & clImageFormat, windowWidth,windowHeight,0,NULL,&err);
 
 	if(err != CL_SUCCESS)
@@ -735,16 +840,15 @@ void RenderWindow::initializeMemory()
 
 
 
+
 	readBuffer = new uchar [windowWidth*windowHeight * 4];
 
 }
-
 void RenderWindow::initializeCL()
 {
 
 	initializeProgram();
 	initializeMemory();
-
 	profileTimer.start();
 	timer.start();
 	float time = timer.elapsed()/ 1000.0f;

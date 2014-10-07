@@ -24,7 +24,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <ctime>
-#include "TriangleWindow.h"
+#include "MainWindow.h"
 using std::cout;
 using std::endl;
 
@@ -33,8 +33,9 @@ int main(int argc, char * argv [])
 	srand(6576576);
 	QApplication app(argc,argv);
 	
-	RenderWindow renderwindow;
-	renderwindow.show();
+	RenderWindow * renderwindow = new RenderWindow();
+	MainWindow window(renderwindow);
+	window.show();
 
 
 	/*QSurfaceFormat format;

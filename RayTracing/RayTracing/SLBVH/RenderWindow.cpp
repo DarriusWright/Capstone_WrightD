@@ -5,7 +5,7 @@ CL_DEVICE_MAX_WORK_ITEM_SIZES - 1024, 1024, 64
 */
 const cl_float RenderWindow::MIN = 10000000.0f;
 const cl_float RenderWindow::MAX = -10000000.0f;
-const cl_uint RenderWindow::NUMBER_OF_SPHERES = 10000;
+const cl_uint RenderWindow::NUMBER_OF_SPHERES = (1 << 14);
 
 RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0,0,300), glm::vec3(0,0,0)), radixGroupSize(64), radixBinSize(256),radixDataSize(0)
 {
@@ -56,6 +56,8 @@ void RenderWindow::addObject(Object object)
 
 void RenderWindow::computeRadixGroups()
 {
+	//radixDataSize = (objects.size() < 512) ? 512 : nextPowerOfTwo(objects.size());
+	radixDataSize = objects.size();
 	radixBinSize = (radixDataSize <= radixBinSize) ? radixDataSize/2 : radixBinSize;
 
 	if ((radixDataSize / radixBinSize)/radixGroupSize  <=1)
@@ -69,7 +71,8 @@ void RenderWindow::computeRadixGroups()
 	}
 }
 
-void  RenderWindow::computeHistogram(int currentByte) {
+
+void RenderWindow::computeHistogram(int currentByte) {
 	cl_int status;
 	size_t globalThreads = radixDataSize;
 	size_t localThreads  = radixBinSize;
@@ -90,7 +93,7 @@ void  RenderWindow::computeHistogram(int currentByte) {
 		NULL,NULL);
 }
 
-void  RenderWindow::computeRankingNPermutations(int currentByte, size_t groupSize) {
+void RenderWindow::computeRankingNPermutations(int currentByte, size_t groupSize) {
 	cl_int status;
 
 	size_t globalThreads = radixDataSize/R;
@@ -106,7 +109,7 @@ void  RenderWindow::computeRankingNPermutations(int currentByte, size_t groupSiz
 	status = clEnqueueCopyBuffer(queue, sortedDataMem, unsortedDataMem, 0, 0, radixDataSize * sizeof(MortonNode), 0, NULL, NULL);
 }
 
-void  RenderWindow::computeBlockScans() {
+void RenderWindow::computeBlockScans() {
 	cl_int status;
 
 	size_t numberOfGroups = radixDataSize / radixBinSize;
@@ -119,7 +122,7 @@ void  RenderWindow::computeBlockScans() {
 	status = clSetKernelArg(blockScanKernel, 2, radixGroupSize * sizeof(cl_uint), NULL);
 	status = clSetKernelArg(blockScanKernel, 3, sizeof(cl_uint), &groupSize); 
 	status = clSetKernelArg(blockScanKernel, 4, sizeof(cl_mem), &sumInMem);
-	
+
 
 	status = clEnqueueNDRangeKernel(
 		queue,
@@ -131,22 +134,22 @@ void  RenderWindow::computeBlockScans() {
 		0, 
 		NULL,
 		NULL);
-	
 
-	
-	
+
+
+
 
 	if(numberOfGroups/radixGroupSize != 1) {
 		size_t globalThreadsPrefix[2] = {numberOfGroups/radixGroupSize, R};
 		status = clSetKernelArg(prefixSumKernel, 0, sizeof(cl_mem), (void*)&sumOutMem);
-		
+
 		status = clSetKernelArg(prefixSumKernel, 1, sizeof(cl_mem), (void*)&sumInMem);
-		
+
 		status = clSetKernelArg(prefixSumKernel, 2, sizeof(cl_mem), (void*)&summaryInMem);
-		
+
 		cl_uint stride = (cl_uint)numberOfGroups/radixGroupSize;
 		status = clSetKernelArg(prefixSumKernel, 3, sizeof(cl_uint), (void*)&stride);
-		
+
 		status = clEnqueueNDRangeKernel(
 			queue,
 			prefixSumKernel,
@@ -157,17 +160,17 @@ void  RenderWindow::computeBlockScans() {
 			0,
 			NULL,
 			NULL);
-		
-		
+
+
 
 		size_t globalThreadsAdd[2] = {numberOfGroups, R};
 		size_t localThreadsAdd[2]  = {radixGroupSize, 1};
 		status = clSetKernelArg(blockAddKernel, 0, sizeof(cl_mem), (void*)&sumOutMem);  
-		
+
 		status = clSetKernelArg(blockAddKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);  
-		
+
 		status = clSetKernelArg(blockAddKernel, 2, sizeof(cl_uint), (void*)&stride);  
-		
+
 		status = clEnqueueNDRangeKernel(
 			queue,
 			blockAddKernel,
@@ -178,23 +181,23 @@ void  RenderWindow::computeBlockScans() {
 			0,
 			NULL,
 			NULL);
-		
+
 
 		size_t globalThreadsScan[1] = {R};
 		size_t localThreadsScan[1] = {R};
 		status = clSetKernelArg(unifiedBlockScanKernel, 0, sizeof(cl_mem), (void*)&summaryOutMem);
-		
+
 		if(numberOfGroups/radixGroupSize != 1) 
 			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&summaryInMem); 
 		else
 			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&sumInMem); 
-		
+
 
 		status = clSetKernelArg(unifiedBlockScanKernel, 2, R * sizeof(cl_uint), NULL);
-		
+
 		groupSize = R;
 		status = clSetKernelArg(unifiedBlockScanKernel, 3, sizeof(cl_uint), (void*)&groupSize); 
-		
+
 		status = clEnqueueNDRangeKernel(
 			queue,
 			unifiedBlockScanKernel,
@@ -205,38 +208,55 @@ void  RenderWindow::computeBlockScans() {
 			0, 
 			NULL, 
 			NULL);
-		
 
-		
+
+
 
 		size_t globalThreadsOffset[2] = {numberOfGroups, R};
 		status = clSetKernelArg(mergePrefixSumsKernel, 0, sizeof(cl_mem), (void*)&summaryOutMem);
-		
+
 		status = clSetKernelArg(mergePrefixSumsKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);
-		
+
 		status = clEnqueueNDRangeKernel(queue, mergePrefixSumsKernel, 2, NULL, globalThreadsOffset, NULL, 0, NULL, NULL);
-	
+
 	}
 }
 
-
 void RenderWindow::radixSort() 
 {
-	computeRadixGroups();
-	int size = radixDataSize;
 
-	std::vector<MortonNode> sortedMortonCodes;
-	sortedMortonCodes.resize(size);
+	Timer timer;
 
+	Timer outerTimer;
+	int numberOfIterations = 0;
+	float time;
+	float totalTime [4];
+	outerTimer.start();
 	for(int currentByte = 0; currentByte < sizeof(cl_uint) * bitsbyte ; currentByte += bitsbyte) {
 		computeHistogram(currentByte);
 		computeBlockScans();
 		computeRankingNPermutations(currentByte, radixGroupSize);
-
-
-
 	}
-	clEnqueueReadBuffer(queue,sortedDataMem,CL_TRUE,0, radixDataSize *  sizeof(MortonNode) , &sortedMortonCodes[0],0,0,0);
+	outerTimer.stop();
+	float endTime = outerTimer.interval();
+	float frames = outerTimer.getFramesPerSec();
+
+	std::cout << "Timer : " << endTime << std::endl;
+	std::cout << "Frames : " << frames << std::endl;
+	std::cout << "Done" << std::endl;
+}
+
+
+void RenderWindow::releaseRadixMem()
+{
+
+	clReleaseMemObject(histogramMem       );
+	clReleaseMemObject(scannedHistogramMem);
+	clReleaseMemObject(sortedDataMem      );
+	clReleaseMemObject(sumInMem           );
+	clReleaseMemObject(sumOutMem          );
+	clReleaseMemObject(summaryInMem       );
+	clReleaseMemObject(summaryOutMem      );
 }
 
 
@@ -638,14 +658,29 @@ void RenderWindow::handleKeyInput()
 }
 void RenderWindow::initializeProgram()
 {
-	std::string files []  = { "Kernels/kernelHelperFunctions.opencl","Kernels/sortMortonCodes.opencl","Kernels/generateMortonsCode.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl", "Kernels/drawScene.opencl"};
-	program = buildProgram(files, 6);
+	std::string files []  = { "Kernels/kernelHelperFunctions.opencl", 
+		"Kernels/radixSort.opencl",
+		"Kernels/sortMortonCodes.opencl",
+		"Kernels/generateMortonsCode.opencl", 
+		"Kernels/generateSceneBBox.opencl",
+		"Kernels/initializeCells.opencl",
+		"Kernels/findObjectCells.opencl", 
+		"Kernels/drawScene.opencl"};
+	program = buildProgram(files, 5);
 	drawSceneKernel = clCreateKernel(program, "drawScene", &err);
 	sceneBBoxKernel = clCreateKernel(program, "generateSceneBBox", &err);
 	initializeCellsKernel = clCreateKernel(program, "initializeCells", &err);
 	findObjectCellsKernel = clCreateKernel(program,"findObjectCells", &err);
 	initializeMortonCodesKernel = clCreateKernel(program,"initializeMortonCodes", &err);
 	sortMortonKernel = clCreateKernel(program,"sortMortonCodes", &err);
+
+	histogramKernel = clCreateKernel(program, "computeHistogram", &err);
+	permuteKernel   = clCreateKernel(program, "rankNPermute", &err);
+	unifiedBlockScanKernel  = clCreateKernel(program, "unifiedBlockScan", &err);
+	blockScanKernel  = clCreateKernel(program, "blockScan", &err);
+	prefixSumKernel = clCreateKernel(program, "blockPrefixSum", &err);
+	blockAddKernel  = clCreateKernel(program, "blockAdd", &err);
+	mergePrefixSumsKernel    = clCreateKernel(program, "mergePrefixSums", &err);
 }
 
 void RenderWindow::initializeMemory()
@@ -713,9 +748,40 @@ void RenderWindow::initializeMemory()
 		exit(1);   
 	}
 
+	//initializeMortonMem();
+
+
+	//unsortedDataMem     = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, sizeof(MortonNode) * radixDataSize, unsortedData, &error);
+
+
+
+
+
 	//delete [] buffer;
 
 }
+
+
+void RenderWindow::initializeMortonMem()
+{
+	//computeRadixGroups();
+
+	//radixDataSize = (objects.size() < 512) ? 512 : nextPowerOfTwo(objects.size());
+	cl_uint groupSize = radixGroupSize;
+	cl_uint numberOfGroups = radixDataSize / (groupSize * R);
+
+	unsortedDataMem     = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, sizeof(MortonNode) * radixDataSize, &mortonNodes[0], &err);
+	histogramMem        = clCreateBuffer(context, CL_MEM_READ_WRITE, numberOfGroups * groupSize * R * sizeof(cl_uint), NULL, &err);
+	scannedHistogramMem = clCreateBuffer(context, CL_MEM_READ_WRITE, numberOfGroups * groupSize * R * sizeof(cl_uint), NULL, &err);
+	sortedDataMem       = clCreateBuffer(context, CL_MEM_WRITE_ONLY, radixDataSize * sizeof(MortonNode), NULL, &err);
+	sumInMem           = clCreateBuffer(context, CL_MEM_READ_WRITE, (radixDataSize/groupSize) * sizeof(cl_uint), NULL, &err);
+	sumOutMem          = clCreateBuffer(context, CL_MEM_READ_WRITE, (radixDataSize/groupSize) * sizeof(cl_uint), NULL, &err);
+	summaryInMem       = clCreateBuffer(context, CL_MEM_READ_WRITE, R * sizeof(cl_uint), NULL, &err);
+	summaryOutMem      = clCreateBuffer(context, CL_MEM_READ_WRITE, R * sizeof(cl_uint), NULL, &err);
+
+
+}
+
 
 void RenderWindow::initializeSceneBBox()
 {
@@ -766,8 +832,8 @@ void RenderWindow::initializeCells()
 	initCellWorkSize[0] = objects.size();
 
 	mortonNodes.resize(objects.size());
-
-	mortonMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(MortonNode) * objects.size(), &mortonNodes[0],&err);
+	computeRadixGroups();
+	mortonMem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(MortonNode) * radixDataSize, NULL,&err);
 	//	std::vector<cl_float3> position;
 	//	position.resize(objects.size());
 	//	cl_mem positionMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float3) * objects.size(), &position[0],&err);
@@ -783,95 +849,22 @@ void RenderWindow::initializeCells()
 		exit(1);   
 	} 
 
-	clEnqueueReadBuffer(queue,mortonMem,CL_TRUE,0, sizeof(MortonNode) * objects.size(), &mortonNodes[0],0,0,0);
+	err|= clEnqueueReadBuffer(queue,mortonMem,CL_TRUE,0, sizeof(MortonNode) * objects.size(), &mortonNodes[0],0,0,0);
 
+	initializeMortonMem();
 
-	uint stage, passOfStage, numStages, temp;
-	stage = passOfStage = numStages = 0;
-	uint globalSize = nextPowerOfTwo(mortonNodes.size());
-	uint localSize = 16;
 	vector<MortonNode> mortonNodesOut;
 	mortonNodesOut.resize(objects.size());
 
 
-	cl_mem mortonMemOut = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(MortonNode) * objects.size(), &mortonNodesOut[0],&err);
-	timer.start();
+	Timer sortTimer;
 
-	//err|=clSetKernelArg(sortMortonKernel, 0 , sizeof(cl_mem), &mortonMem);
-	//err|=clSetKernelArg(sortMortonKernel, 1, sizeof(cl_mem), &mortonMemOut);
-	//err|=clSetKernelArg(sortMortonKernel, 2, sizeof(MortonNode) * localSize, NULL);
+	radixSort();
 
+	err|= clEnqueueReadBuffer(queue,sortedDataMem,CL_TRUE,0, sizeof(MortonNode) * objects.size(), &mortonNodesOut[0],0,0,0);
 
-	//err|=clEnqueueNDRangeKernel(queue, sortMortonKernel, 1 ,NULL, 
-	//&globalSize, &localSize, 0, NULL, NULL);
+	releaseRadixMem();
 
-
-	//err|= clEnqueueReadBuffer(queue,mortonMemOut,CL_TRUE,0, sizeof(MortonNode) * objects.size(), &mortonNodesOut[0],0,0,0);
-
-	//clReleaseMemObject(mortonMemOut);
-	//clReleaseMemObject(mortonMem);
-
-	//cout <<  timer.elapsed()/1000.0f << endl;
-	//cout << "Done!" << endl;
-
-	/*for (int i = 0; i < objects.size(); i++)
-	{
-		int min = i;
-
-		for (int j = i; j < objects.size(); j++)
-		{
-
-			if(mortonNodes[min].code > mortonNodes[j].code)
-			{
-				min = j;
-			}
-
-		}
-		MortonNode n = mortonNodes[i];
-		mortonNodes[i] = mortonNodes[min];
-		mortonNodes[min] = n;
-
-	}*/
-
-
-	//uint workGroupSize;
-
-
-	err|=clSetKernelArg(sortMortonKernel, 0 , sizeof(cl_mem), &mortonMem);
-
-
-	timer.start();
-	
-	for (temp = mortonNodes.size(); temp >1; temp>>= 1)
-	{
-		numStages++;
-		globalSize = (uint)(mortonNodes.size()) >> 1;
-		
-		for (stage = 0; stage < numStages; stage++)
-		{
-			clSetKernelArg(sortMortonKernel, 1 , sizeof(uint), &stage);
-			for (passOfStage = 0; passOfStage < stage+1; passOfStage++)
-			{
-				clSetKernelArg(sortMortonKernel, 2 , sizeof(uint), &passOfStage);
-				clEnqueueNDRangeKernel(queue, sortMortonKernel, 1 ,NULL, 
-				&globalSize, NULL, 0, NULL, NULL);
-			}
-			
-		}
-		cout <<  timer.elapsed()/1000.0f <<endl;
-	}
-	cout <<  timer.elapsed()/1000.0f << endl;
-	
-
-	err|= clEnqueueReadBuffer(queue,mortonMem,CL_TRUE,0, sizeof(MortonNode) * objects.size(), &mortonNodes[0],0,0,0);
-
-
-
-	//	err |= clSetKernelArg(sortMortonKernel , 1 , sizeof(uint), 
-
-
-	//clEnqueueReadBuffer(queue,positionMem,CL_TRUE,0, sizeof(cl_float3) * objects.size(), &position[0],0,0,0);
-	//clReleaseMemObject(positionMem);
 	float wx =box.max[0] - box.min[0];
 	float wy =box.max[1] - box.min[1];
 	float wz =box.max[2] - box.min[2];

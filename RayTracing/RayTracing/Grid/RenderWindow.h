@@ -16,12 +16,18 @@
 #include <Random.h>
 #include<QtCore\qelapsedtimer.h>
 #include <Camera\Camera.h>
-
+#include <string>
 #include <QtOpenGL\qglfunctions.h>
 #include <QtGui\qwindow.h>
 #include "OpenGLWindow.h"
 #include <QtGui\qopenglframebufferobject.h>
 #include <CL\cl_gl.h>
+#include <Objects\Triangle.h>
+#include <assimp\Importer.hpp>
+#include <assimp\scene.h>
+#include <assimp\postprocess.h>
+#include <Helper.h>
+#include <Exception\OpenCLExceptions.h>
 
 using std::vector;
 using std::cout;
@@ -37,16 +43,27 @@ public:
 	void resizeEvent(QResizeEvent * e)override;
 	void addLight(Light light);
 	void addObject(Object sphere);
-
-	
+	void addMesh(std::string filePath);
+	void addSphere();
+	float getFPS();
+	float getInterval();
+	Random random;
+	void setSamples(int samples = 4);
 //	void initialize()override;
 //	void render()override;
 
 private:
+	float fps;
+	float interval;
+
+	int samples;
+	int sampleSquared;
+	
+
 //	QOpenGLFramebufferObject * frameBuffer;
 //	GLuint frameBufferId;
 //	void createFrameBuffer();
-
+	std::vector<Triangle> triangles;
 
 	Camera camera;
 	
@@ -58,7 +75,8 @@ private:
 	static const cl_float MIN;
 	static const cl_float MAX;
 	static const cl_uint NUMBER_OF_SPHERES;
-	
+	static const cl_uint flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType;
+		
 	cl_int nx,ny,nz , numCells, nextPowerOfCells, numberOfCellObjects;
 	cl_float wx,wy,wz, s;
 	const cl_float multi;
@@ -127,6 +145,7 @@ private:
 	cl_mem cellsBoxMem;
 	cl_mem minMem;
 	cl_mem maxMem;
+	cl_mem trianglesMem;
 
 	cl_mem writeCLImage;
 	cl_mem lightMem;
@@ -162,9 +181,10 @@ private:
 		return pow(2, ceil(log(number)/log(2)));
 	}
 
-private slots:
+public slots:
 	void updateScene();
-	
+private slots:
+	void openFile();
 	
 };
 

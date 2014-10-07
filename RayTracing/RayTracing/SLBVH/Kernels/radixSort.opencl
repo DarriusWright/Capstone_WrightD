@@ -1,13 +1,7 @@
-#define bitsbyte 8
-#define R (1 << bitsbyte)
+__constant uint bitsbyte = 8;
+__constant uint R = 256;
 
-typedef struct 
-{
 
-	uint code;
-	uint index;
-
-}MortonCode;
 
 __kernel void computeHistogram(__global const MortonCode* data,
                                __global uint* buckets,

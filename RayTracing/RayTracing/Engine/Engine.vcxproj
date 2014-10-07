@@ -84,11 +84,16 @@
     <ClInclude Include="Lights\Light.h" />
     <ClInclude Include="Objects\Material.h" />
     <ClInclude Include="Objects\Object.h" />
+    <ClInclude Include="Objects\Triangle.h" />
+    <ClInclude Include="Exception\OpenCLExceptions.h" />
     <ClInclude Include="Random.h" />
     <ClInclude Include="Objects\Sphere.h" />
+    <ClInclude Include="Timer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera\Camera.cpp" />
+    <ClCompile Include="Exception\OpenCLExceptions.cpp" />
+    <ClCompile Include="Timer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

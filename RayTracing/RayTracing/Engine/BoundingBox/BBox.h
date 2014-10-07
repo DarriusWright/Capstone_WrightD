@@ -15,4 +15,6 @@ public :
 	float d1;
 	glm::vec3 max;
 	float d2;
+
+
 };

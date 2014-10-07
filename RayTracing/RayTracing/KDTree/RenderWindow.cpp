@@ -5,7 +5,7 @@ CL_DEVICE_MAX_WORK_ITEM_SIZES - 1024, 1024, 64
 */
 const cl_float RenderWindow::MIN = 10000000.0f;
 const cl_float RenderWindow::MAX = -10000000.0f;
-const cl_uint RenderWindow::NUMBER_OF_SPHERES = 20;
+const cl_uint RenderWindow::NUMBER_OF_SPHERES = 200;
 
 RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0,0,300), glm::vec3(0,0,0))
 {
@@ -84,7 +84,7 @@ void RenderWindow::construct()
 		object.material = sphere.material;
 		object.box = b;
 		cl_int2 indices = {0,0};
-		object.triangleIndices =indices;
+		object.triangleIndex =-1;
 		object.index = i;
 		object.position = sphere.position;
 

@@ -30,7 +30,7 @@ struct MortonNode
 
 static unsigned int radixGroupSize = 64;                // ATI HD7870 has 20 parallel compute units, !!!wavefront programming!!!
 static unsigned int  radixBinSize  = 256;
-static unsigned int radixDataSize =  (1<<16);
+static unsigned int radixDataSize =  512;
 
 cl_kernel histogramKernel;
 cl_kernel permuteKernel  ;
@@ -108,7 +108,7 @@ void computeBlockScans() {
 	status = clSetKernelArg(blockScanKernel, 2, radixGroupSize * sizeof(cl_uint), NULL);
 	status = clSetKernelArg(blockScanKernel, 3, sizeof(cl_uint), &groupSize); 
 	status = clSetKernelArg(blockScanKernel, 4, sizeof(cl_mem), &sumInMem);
-	
+
 
 	status = clEnqueueNDRangeKernel(
 		queue,
@@ -120,22 +120,22 @@ void computeBlockScans() {
 		0, 
 		NULL,
 		NULL);
-	
 
-	
-	
+
+
+
 
 	if(numberOfGroups/radixGroupSize != 1) {
 		size_t globalThreadsPrefix[2] = {numberOfGroups/radixGroupSize, R};
 		status = clSetKernelArg(prefixSumKernel, 0, sizeof(cl_mem), (void*)&sumOutMem);
-		
+
 		status = clSetKernelArg(prefixSumKernel, 1, sizeof(cl_mem), (void*)&sumInMem);
-		
+
 		status = clSetKernelArg(prefixSumKernel, 2, sizeof(cl_mem), (void*)&summaryInMem);
-		
+
 		cl_uint stride = (cl_uint)numberOfGroups/radixGroupSize;
 		status = clSetKernelArg(prefixSumKernel, 3, sizeof(cl_uint), (void*)&stride);
-		
+
 		status = clEnqueueNDRangeKernel(
 			queue,
 			prefixSumKernel,
@@ -146,17 +146,17 @@ void computeBlockScans() {
 			0,
 			NULL,
 			NULL);
-		
-		
+
+
 
 		size_t globalThreadsAdd[2] = {numberOfGroups, R};
 		size_t localThreadsAdd[2]  = {radixGroupSize, 1};
 		status = clSetKernelArg(blockAddKernel, 0, sizeof(cl_mem), (void*)&sumOutMem);  
-		
+
 		status = clSetKernelArg(blockAddKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);  
-		
+
 		status = clSetKernelArg(blockAddKernel, 2, sizeof(cl_uint), (void*)&stride);  
-		
+
 		status = clEnqueueNDRangeKernel(
 			queue,
 			blockAddKernel,
@@ -167,23 +167,23 @@ void computeBlockScans() {
 			0,
 			NULL,
 			NULL);
-		
+
 
 		size_t globalThreadsScan[1] = {R};
 		size_t localThreadsScan[1] = {R};
 		status = clSetKernelArg(unifiedBlockScanKernel, 0, sizeof(cl_mem), (void*)&summaryOutMem);
-		
+
 		if(numberOfGroups/radixGroupSize != 1) 
 			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&summaryInMem); 
 		else
 			status = clSetKernelArg(unifiedBlockScanKernel, 1, sizeof(cl_mem), (void*)&sumInMem); 
-		
+
 
 		status = clSetKernelArg(unifiedBlockScanKernel, 2, R * sizeof(cl_uint), NULL);
-		
+
 		groupSize = R;
 		status = clSetKernelArg(unifiedBlockScanKernel, 3, sizeof(cl_uint), (void*)&groupSize); 
-		
+
 		status = clEnqueueNDRangeKernel(
 			queue,
 			unifiedBlockScanKernel,
@@ -194,27 +194,27 @@ void computeBlockScans() {
 			0, 
 			NULL, 
 			NULL);
-		
 
-		
+
+
 
 		size_t globalThreadsOffset[2] = {numberOfGroups, R};
 		status = clSetKernelArg(mergePrefixSumsKernel, 0, sizeof(cl_mem), (void*)&summaryOutMem);
-		
+
 		status = clSetKernelArg(mergePrefixSumsKernel, 1, sizeof(cl_mem), (void*)&scannedHistogramMem);
-		
+
 		status = clEnqueueNDRangeKernel(queue, mergePrefixSumsKernel, 2, NULL, globalThreadsOffset, NULL, 0, NULL, NULL);
-	
+
 	}
 }
 
 void radixSort(MortonNode* dSortedData,
-				size_t numberOfGroups,
-				size_t groupSize) 
+			   size_t numberOfGroups,
+			   size_t groupSize) 
 {
 	int size = radixDataSize;
 
-		std::vector<MortonNode> dataVector;
+	std::vector<MortonNode> dataVector;
 	dataVector.resize(size);
 
 
@@ -226,57 +226,59 @@ void radixSort(MortonNode* dSortedData,
 		computeRankingNPermutations(currentByte, groupSize);
 
 
-
 	}
+
 
 
 	timer.stop();
 	float endTime = timer.interval();
 	float frames = timer.getFramesPerSec();
 
-	clEnqueueReadBuffer(queue,sortedDataMem,CL_TRUE,0, radixDataSize *  sizeof(MortonNode) , &dataVector[0],0,0,0);
-
-
 	std::cout << "Timer : " << endTime << std::endl;
 	std::cout << "Frames : " << frames << std::endl;
 	std::cout << "Done" << std::endl;
+
+	clEnqueueReadBuffer(queue,sortedDataMem,CL_TRUE,0, radixDataSize *  sizeof(MortonNode) , &dataVector[0],0,0,0);
+
+
+
 }
 
 
 void radixSort(cl_uint* dSortedData,
-				size_t numberOfGroups,
-				size_t groupSize) {
+			   size_t numberOfGroups,
+			   size_t groupSize) {
 
-					int size = radixDataSize;
-					Timer timer;
-					timer.start();
-					for(int currentByte = 0; currentByte < sizeof(cl_uint) * bitsbyte ; currentByte += bitsbyte) {
-						computeHistogram(currentByte);
-						computeBlockScans();
-						computeRankingNPermutations(currentByte, groupSize);
-					}
+				   int size = radixDataSize;
+				   Timer timer;
+				   timer.start();
+				   for(int currentByte = 0; currentByte < sizeof(cl_uint) * bitsbyte ; currentByte += bitsbyte) {
+					   computeHistogram(currentByte);
+					   computeBlockScans();
+					   computeRankingNPermutations(currentByte, groupSize);
+				   }
 
-					cl_int status;
-					cl_uint* data = (cl_uint*)clEnqueueMapBuffer(queue, sortedDataMem, CL_TRUE, CL_MAP_READ, 0, size*sizeof(cl_uint),0,NULL,NULL,&status);
+				   cl_int status;
+				   cl_uint* data = (cl_uint*)clEnqueueMapBuffer(queue, sortedDataMem, CL_TRUE, CL_MAP_READ, 0, size*sizeof(cl_uint),0,NULL,NULL,&status);
 
-					memcpy(dSortedData, data, size*sizeof(cl_uint));
-					timer.stop();
-					float endTime = timer.interval();
-					float frames = timer.getFramesPerSec();
+				   memcpy(dSortedData, data, size*sizeof(cl_uint));
+				   timer.stop();
+				   float endTime = timer.interval();
+				   float frames = timer.getFramesPerSec();
 
-					std::cout << "Timer : " << endTime << std::endl;
-					std::cout << "Frames : " << frames << std::endl;
+				   std::cout << "Timer : " << endTime << std::endl;
+				   std::cout << "Frames : " << frames << std::endl;
 
-					std::vector<cl_uint> dataVector;
-					dataVector.resize(size);
-					for(int i = 0; i < size; i++)
-					{
-						dataVector[i] = dSortedData[i];
-					}
+				   std::vector<cl_uint> dataVector;
+				   dataVector.resize(size);
+				   for(int i = 0; i < size; i++)
+				   {
+					   dataVector[i] = dSortedData[i];
+				   }
 
-					clEnqueueUnmapMemObject(queue,sortedDataMem,data,0,NULL,NULL);
+				   clEnqueueUnmapMemObject(queue,sortedDataMem,data,0,NULL,NULL);
 
-					std::cout << "Done" << std::endl;
+				   std::cout << "Done" << std::endl;
 }
 
 
@@ -309,10 +311,14 @@ void fillRandom(cl_uint* data, unsigned int length) {
 
 void fillRandom(MortonNode* data, unsigned int length) {
 	MortonNode* iptr = data;
-	for(int i = 0 ; i < length; ++i) 
+	for(int i = 0 ; i < length; i += 16) 
 	{
-		iptr[i].code = (cl_uint)rand();
-		iptr[i].index = i;
+		cl_uint value = (cl_uint)rand() + 10000;
+		for(int j = 0; j < 16; j++)
+		{
+			iptr[i + j].code = value;
+			iptr[i + j].index = i+ j;
+		}
 	}
 }
 
@@ -331,7 +337,7 @@ int main(int argc, char** argv) {
 
 	}
 
-	MortonNode* unsortedData = NULL;
+	std::vector<MortonNode> unsortedData;// = NULL;
 	MortonNode* dSortedData = NULL;
 
 	cl_platform_id* platforms;
@@ -342,8 +348,9 @@ int main(int argc, char** argv) {
 	cl_uint groupSize = radixGroupSize;
 	cl_uint numberOfGroups = radixDataSize / (groupSize * R); 
 
-	unsortedData = (MortonNode*) malloc(radixDataSize * sizeof(MortonNode));
-	fillRandom(unsortedData, radixDataSize);
+	//unsortedData = (MortonNode*) malloc(radixDataSize * sizeof(MortonNode));
+	unsortedData.resize(radixDataSize);
+	fillRandom(&unsortedData[0], radixDataSize);
 
 	dSortedData = (MortonNode*) malloc(radixDataSize * sizeof(MortonNode));
 	memset(dSortedData, 0, radixDataSize * sizeof(cl_uint));
@@ -418,7 +425,7 @@ int main(int argc, char** argv) {
 
 		queue = clCreateCommandQueue(context, device, 0, &error);
 
-		unsortedDataMem     = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, sizeof(MortonNode) * radixDataSize, unsortedData, &error);
+		unsortedDataMem     = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, sizeof(MortonNode) * radixDataSize, &unsortedData[0], &error);
 		histogramMem        = clCreateBuffer(context, CL_MEM_READ_WRITE, numberOfGroups * groupSize * R * sizeof(cl_uint), NULL, &error);
 		scannedHistogramMem = clCreateBuffer(context, CL_MEM_READ_WRITE, numberOfGroups * groupSize * R * sizeof(cl_uint), NULL, &error);
 		sortedDataMem       = clCreateBuffer(context, CL_MEM_WRITE_ONLY, radixDataSize * sizeof(MortonNode), NULL, &error);
@@ -436,7 +443,6 @@ int main(int argc, char** argv) {
 		mergePrefixSumsKernel    = clCreateKernel(program, "mergePrefixSums", &error);
 
 		radixSort( dSortedData, numberOfGroups, groupSize);
-
 
 		// Clean up 
 
@@ -456,7 +462,7 @@ int main(int argc, char** argv) {
 		clReleaseKernel(blockAddKernel);
 		clReleaseKernel(mergePrefixSumsKernel);
 
-		free(unsortedData);
+		//free(unsortedData);
 		free(dSortedData);
 
 		system("pause");
