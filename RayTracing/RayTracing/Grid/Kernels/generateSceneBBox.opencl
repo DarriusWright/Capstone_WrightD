@@ -48,8 +48,8 @@ __kernel void generateSceneBBox(__global BBox * box, __global Object * objects,
     }
     if (local_index == 0) 
     {
-        box[0].max = maxArray[0];
-        box[0].min = minArray[0];
+        box[0].max = maxArray[0] + 0.001;
+        box[0].min = minArray[0] - 0.001;
 
     }
 }

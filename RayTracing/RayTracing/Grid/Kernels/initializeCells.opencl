@@ -62,11 +62,11 @@ __kernel void initializeCells(__global Object * objects,__global BBox * box,__gl
 	int3 cellMin = positionToVoxel(objects[objectIndex].box.min + objects[objectIndex].position.xyz,widthInverse, numberOfVoxels,box[0] );
 	int3 cellMax = positionToVoxel(objects[objectIndex].box.max+ objects[objectIndex].position.xyz,widthInverse, numberOfVoxels,box[0] );
 
-	for(int z = cellMin.z; z < cellMax.z; z++)
+	for(int z = cellMin.z; z <= cellMax.z; z++)
 	{
-		for(int y = cellMin.y; y < cellMax.y; y++)
+		for(int y = cellMin.y; y <= cellMax.y; y++)
 		{
-			for(int x = cellMin.x; x < cellMax.x; x++)
+			for(int x = cellMin.x; x <= cellMax.x; x++)
 			{
 				atom_inc(&cells[findVoxelIndex((int3)(x,y,z) , numberOfVoxels)]);
 				atom_inc(&totalCells[0]);

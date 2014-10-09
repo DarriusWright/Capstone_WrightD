@@ -194,7 +194,8 @@ int maxExtent(BBox box)
 
 int3 positionToVoxel(float3 position,  float3 invWidth, float3 numberOfVoxels , BBox sceneBox)
 {
-	int3 voxelPosition = convert_int3((position - sceneBox.min) * invWidth);
+	float3 dif = (position - sceneBox.min) + 0.0001f;
+	int3 voxelPosition = convert_int3(dif * invWidth);
 	int3 nVoxels = convert_int3(numberOfVoxels);
 	voxelPosition = clamp(voxelPosition,(int3)(0,0,0) , nVoxels);
 	return voxelPosition;
@@ -285,8 +286,19 @@ HitReturn hitBBox(Ray ray,float3 minPoint, float3 maxPoint)
 
 	HitReturn returnValue;
 	returnValue.hit  =(minValue < maxValue && maxValue > epsilion);
-	returnValue.minValue = minValue;
-	returnValue.maxValue = maxValue;
+
+	if(returnValue.hit)
+	{
+		returnValue.minValue = minValue;
+		returnValue.maxValue = maxValue;
+	}
+	else
+	{
+		returnValue.minValue = 0.0f;
+		returnValue.maxValue = 0.0f;	
+	}
+
+
 	return returnValue;
 }
 
@@ -305,6 +317,7 @@ Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 d
 	ray.direction = normalize(pixelToRay.x * camera.u + pixelToRay.y * camera.v - camera.distance * camera.w);
 
 	return ray;
+	
 	*/
 	Ray ray;
 	float2 pixelToRay = (float2)((pixelLocation.x - (0.5f * width)) + (dim.x + 0.5)/sampleNumber, (pixelLocation.y - (0.5 * height)) + (dim.y + 0.5)/sampleNumber);

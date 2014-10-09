@@ -57,7 +57,7 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 					int3 currentCell;
 					float minVal = 0.0f;
 					float maxVal = 0.0f;
-				/*	
+					
 					if(!insideBBox(ray.origin.xyz,box.min,box.max ))
 					{
 						float3 p = ray.origin.xyz + (hitCheck.minValue * ray.direction.xyz);
@@ -73,12 +73,16 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 
 					}
 
-			
+					int totalVoxels = numberOfVoxels.x * numberOfVoxels.y * numberOfVoxels.z;
+					
 
 					
 					float3 intersectionPoint = ray.origin.xyz + (ray.direction.xyz * minVal);
 
 					int cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+					if (cellIndex < totalVoxels) 
+					{
+
 					float3 nextCrossing;
 					float3 deltaT;
 					int3 nextStep;
@@ -137,34 +141,36 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 
 					int bits =0;
 					float lastDistance = 10000000.0f;
-					while(true)
+					while(cellIndex < totalVoxels)
 					{
-						int cellObjectNumber = cellIndices[cellIndex]- cellIndices[cellIndex-1];
+						int cellObjectNumber = (cellIndex > 0) ? cellIndices[cellIndex]- cellIndices[cellIndex-1]  : cellIndices[0];
 
 						for(int i = 0; i <  cellObjectNumber; i++ )
 						{
-							int objectIndex = objectIndices[cellIndices[cellIndex-1] + i]-1;
-
-							if(objects[objectIndex].position.w == 0.0)
+							int objectIndex = objectIndices[cellIndices[(cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
+							if(objectIndex < numberOfObjects)
 							{
-								TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
-								if(triInfo.hasIntersection)
+								if(objects[objectIndex].position.w == 0.0)
 								{
-									outColor = (uint4)adsLightT(objects[objectIndex], light[0], triInfo);
-									lastDistance = triInfo.distanceFromIntersection;									
-									//run = false;
-									break;
+									TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
+									if(triInfo.hasIntersection)
+									{
+										outColor = (uint4)adsLightT(objects[objectIndex], light[0], triInfo);
+										lastDistance = triInfo.distanceFromIntersection;									
+										//run = false;
+										break;
+									}
 								}
-							}
-							else
-							{
-								SphereInfo sphereInfo = sphereIntersection(ray,objects[objectIndex].position.xyz,objects[objectIndex].position.w);
-								if(sphereInfo.hasIntersection && sphereInfo.distanceToIntersection < lastDistance)
+								else
 								{
-									outColor = (uint4)adsLightS(objects[objectIndex], light[0], sphereInfo);
-									lastDistance = sphereInfo.distanceToIntersection;									
-									//run = false;
-									break;
+									SphereInfo sphereInfo = sphereIntersection(ray,objects[objectIndex].position.xyz,objects[objectIndex].position.w);
+									if(sphereInfo.hasIntersection && sphereInfo.distanceToIntersection < lastDistance)
+									{
+										outColor = (uint4)adsLightS(objects[objectIndex], light[0], sphereInfo);
+										lastDistance = sphereInfo.distanceToIntersection;									
+										//run = false;
+										break;
+									}
 								}
 							}
 						}
@@ -232,10 +238,10 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 							nextCrossing.z += deltaT.z;
 
 						}
-
 					}
+				}
 				
-					*/
+					/*
 		if(insideBBox(ray.origin,box.min,box.max ))
 					{
 						currentCell = (int3)(convert_int3(clamp((ray.origin - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
@@ -310,7 +316,7 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 							
 							cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
 						}
-					}
+					}*/
 			
 		//}
 	}

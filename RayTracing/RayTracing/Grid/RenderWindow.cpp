@@ -241,6 +241,7 @@ void RenderWindow::updateDrawScene()
 		NULL, 0, NULL, NULL);
 
 	err |= clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
+	//qDebug() << err;
 }
 void RenderWindow::updateScene()
 {
@@ -493,7 +494,7 @@ cl_program RenderWindow::buildProgram(std::string files [], int numberOfFiles)
 	}
 	delete [] program_buffer;
 	delete [] program_size;
-	const char options[] = "-cl-std=CL1.1 -cl-mad-enable -Werror";
+	const char options[] = "-cl-std=CL1.1 -cl-mad-enable -Werror -cl-nv-verbose";
 
 	/* Build program */
 	err = clBuildProgram(program, 0, NULL, 
@@ -631,6 +632,24 @@ void RenderWindow::initializeCells()
 	cellIncrements.resize(totalVoxels);
 	objectIndices.resize(numberOfCellObjects);
 
+
+	//for(int i = 0; i < objects.size(); i++)
+	//{
+	//	glm::vec3 cellMin = positionToVoxel(objects[i].box.min  + glm::vec3(objects[i].position),voxelInvWidth, numberOfVoxels,box );
+	//	glm::vec3 cellMax = positionToVoxel(objects[i].box.max + glm::vec3(objects[i].position),voxelInvWidth, numberOfVoxels,box );
+
+	//	for(int z = cellMin.z; z <= cellMax.z; z++)
+	//	{
+	//		for(int y = cellMin.y; y <= cellMax.y; y++)
+	//		{
+	//			for(int x = cellMin.x; x <= cellMax.x; x++)
+	//			{
+	//				cells[findVoxelIndex(glm::vec3(x,y,z),numberOfVoxels)]++;
+	//				totalVoxels++;
+	//			}
+	//		}
+	//	}
+	//}
 
 	cellIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, cellIndices.size() * sizeof(cl_int),&cellIndices[0], &err);
 	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
@@ -869,13 +888,20 @@ void RenderWindow::calculateVoxelSize()
 
 	totalVoxels = numberOfVoxels[0] * numberOfVoxels[1]* numberOfVoxels[2];
 
+
+	glm::vec3 minPosition = objects[0].box.min + glm::vec3(objects[0].position);
+	glm::vec3 maxPosition = objects[0].box.max + glm::vec3(objects[0].position);
 	//Testing
-	glm::vec3 min = positionToVoxel(objects[0].box.min + glm::vec3(objects[0].position), voxelInvWidth, numberOfVoxels, box);
-	glm::vec3 max = positionToVoxel(objects[0].box.max + glm::vec3(objects[0].position), voxelInvWidth, numberOfVoxels, box);
+	glm::vec3 min = positionToVoxel(minPosition, voxelInvWidth, numberOfVoxels, box);
+	glm::vec3 max = positionToVoxel(maxPosition, voxelInvWidth, numberOfVoxels, box);
 
 	int minNumber = findVoxelIndex(min,numberOfVoxels);
 	int maxNumber = findVoxelIndex(max,numberOfVoxels);
 
+	glm::vec3 voxPos = findVoxelPosition(minNumber, numberOfVoxels);
+	glm::vec3 voxelPosition = voxelToPosition(box,voxPos, voxelWidth);
+	glm::vec3 voxelLocation = positionToVoxel(voxelPosition, voxelInvWidth, numberOfVoxels, box);
+	int voxelIndex = findVoxelIndex(voxelLocation,numberOfVoxels);
 
 }
 float RenderWindow::findVoxelsPerUnit()
