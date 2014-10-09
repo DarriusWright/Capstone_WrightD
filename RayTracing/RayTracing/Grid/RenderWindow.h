@@ -52,6 +52,25 @@ public:
 //	void render()override;
 
 private:
+
+	//Grid functions
+	void calculateVoxelSize();
+	float  findVoxelsPerUnit();
+
+	//Grid data
+	glm::vec3 numberOfVoxels;
+	glm::vec3 voxelWidth;
+	glm::vec3 voxelInvWidth;
+	glm::vec3 delta;
+	glm::vec3 deltaInv;
+	int totalVoxels;
+
+
+	//Grid Const
+	static const int MAX_VOXELS = 64;
+	static const int MIN_VOXELS = 1;
+
+
 	float fps;
 	float interval;
 
@@ -67,7 +86,6 @@ private:
 
 	Camera camera;
 	
-	cl_int lengthOfObjects; 
 	void updateDrawScene();
 	void updateBBox();
 	void updateCells();
@@ -77,8 +95,7 @@ private:
 	static const cl_uint NUMBER_OF_SPHERES;
 	static const cl_uint flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType;
 		
-	cl_int nx,ny,nz , numCells, nextPowerOfCells, numberOfCellObjects;
-	cl_float wx,wy,wz, s;
+	cl_int  numCells, nextPowerOfCells, numberOfCellObjects;
 	const cl_float multi;
 	QImage readImage;
 
@@ -91,7 +108,6 @@ private:
 	vector<cl_float3> minArr;
 	vector<cl_float3> maxArr;
 	vector<std::string> objectPaths;
-	vector<BBox> cBoxes;
 	vector<cl_uint> cells;
 
 	cl_image_format clImageFormat;
@@ -106,6 +122,14 @@ private:
 	void initializeCells();
 	void initializeCellObjects();
 	void initializeDrawScene();
+
+	void setUpDrawSceneArgs();
+	void setUpSceneBoxArgs();
+	void setUpCellArgs();
+	void setUpCellObjectArgs();
+
+
+
 
 	cl_program buildProgram(std::string fileName [], int numberOfFiles);
 	void handleKeyInput();
@@ -145,7 +169,6 @@ private:
 	cl_mem cellIncrementsMem;
 	cl_mem clImage;
 	cl_mem cellsMem;
-	cl_mem cellsBoxMem;
 	cl_mem minMem;
 	cl_mem maxMem;
 	cl_mem trianglesMem;
@@ -161,7 +184,7 @@ private:
 	cl_int numberOfLights;
 	cl_int numberOfObjects;
 	size_t globalWorkSize[2];
-	size_t initCellWorkSize[2];
+	size_t initCellWorkSize;
 	
 	size_t sceneBBoxGlobalWorkSize;
 

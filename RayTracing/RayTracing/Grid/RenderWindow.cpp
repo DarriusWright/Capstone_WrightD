@@ -5,14 +5,21 @@ CL_DEVICE_MAX_WORK_ITEM_SIZES - 1024, 1024, 64
 */
 const cl_float RenderWindow::MIN = 10000000.0f;
 const cl_float RenderWindow::MAX = -10000000.0f;
+const cl_uint RenderWindow::NUMBER_OF_SPHERES = 1;
+
 
 RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance())
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
 	setSamples(1);
+	QElapsedTimer t;
+	
 	initializeProgram();
 	construct();
+	
+
+	
 }
 RenderWindow::~RenderWindow(void)
 {
@@ -162,8 +169,52 @@ void RenderWindow::construct()
 
 	layout = new QHBoxLayout();
 	Light light = {{{0.925,0.835,0.102}, {0.73,0.724,0.934},{0.2,0.52,0.96}}, {2.0f,2.0f,200.0f}};
-	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/suzy.obj");
+	//addMesh("D:/Capstone/RayTracing/RayTracing/Grid/basicCube.obj");
 
+	Random random = Random::getInstance();
+	for(int i = 0; i < NUMBER_OF_SPHERES; i++)
+	{
+
+		Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
+		{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
+		{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
+		glm::vec4(random.getRandomFloat(-10.0f,10.0f), random.getRandomFloat(-10.0f,10.0f), random.getRandomFloat(0.0f,10.0f),2.0f)};
+		//spheres.push_back(sphere);
+
+		Object object; 
+	
+		BBox b = {
+			glm::vec3(sphere.getMinX(),
+			sphere.getMinY(),
+			sphere.getMinZ()),0.0f,
+			glm::vec3(
+			sphere.getMaxX(),
+			sphere.getMaxY(),
+			sphere.getMaxZ()),0.0f
+			
+		};
+		object.material = sphere.material;
+		object.box = b;
+		cl_int2 indices = {0,0};
+		object.triangleIndex =-1;
+		object.index = i;
+		object.position = sphere.position;
+
+
+		objects.push_back(object);
+		float x;
+		float y;
+
+		box.min[0] = glm::min((sphere.getMinX() + sphere.position[0]) ,box.min[0]);
+		box.min[1] = glm::min(sphere.getMinY()  +  sphere.position[1],box.min[1]);
+		box.min[2] = glm::min(sphere.getMinZ()	 + sphere.position[2],box.min[2]);
+
+		box.max[0] = glm::max(sphere.getMaxX()+ sphere.position[0],box.max[0]);
+		box.max[1] = glm::max(sphere.getMaxY()+  sphere.position[1],box.max[1]);
+		box.max[2] = glm::max(sphere.getMaxZ()+ sphere.position[2],box.max[2]);
+
+
+	}
 
 	lights.push_back(light);
 	numberOfObjects = objects.size();
@@ -184,33 +235,7 @@ void RenderWindow::construct()
 }
 void RenderWindow::updateDrawScene()
 {
-
-	err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
-	err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
-	err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_sampler), &sampler);
-	err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
-	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
-	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &trianglesMem);
-	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem), &lightMem);
-	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
-	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
-	err |= clSetKernelArg(drawSceneKernel,10, sizeof(BBox), &box);
-	err |= clSetKernelArg(drawSceneKernel, 11, sizeof(cl_mem), &cellsMem);
-	err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_int), &nx);
-	err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_int), &ny);
-	err |= clSetKernelArg(drawSceneKernel,14 , sizeof(cl_int), &nz);
-	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &cellIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 16, sizeof(cl_mem), &objectIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 17, sizeof(Camera), &camera);
-	err |= clSetKernelArg(drawSceneKernel,18 , sizeof(cl_int), &samples);
-	err |= clSetKernelArg(drawSceneKernel,19 , sizeof(cl_int), &sampleSquared);
-
-
-
-
-
-
+	setUpDrawSceneArgs();
 	err |= clEnqueueNDRangeKernel(queue, drawSceneKernel, 2,
 		NULL, &globalWorkSize[0], 
 		NULL, 0, NULL, NULL);
@@ -219,7 +244,7 @@ void RenderWindow::updateDrawScene()
 }
 void RenderWindow::updateScene()
 {
-	releaseUpdate();
+	//releaseUpdate();
 	timer.start();	
 	handleKeyInput();
 	camera.update();
@@ -228,8 +253,14 @@ void RenderWindow::updateScene()
 	profileTimer.start();
 
 	updateBBox();
+	float bbox = profileTimer.elapsed();
+	profileTimer.start();
+
 	updateCells();
+	float cells = profileTimer.elapsed();
+	profileTimer.start();
 	updateDrawScene();
+	float draw = profileTimer.elapsed();
 
 	imageLabel.setPixmap(QPixmap::fromImage(readImage));
 	float drawTimer = profileTimer.elapsed()/1000.0f;
@@ -243,7 +274,7 @@ void RenderWindow::updateBBox()
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
 
-	cl_int lengthOfObjects = objects.size();
+	numberOfObjects = objects.size();
 	int globalObjectSize = nextPowerOfTwo(objects.size());
 
 	minArr.resize(globalObjectSize);
@@ -260,13 +291,8 @@ void RenderWindow::updateBBox()
 	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,sizeof(BBox), &box,&err);
 
 	//err |= clEnqueueReadBuffer(queue,trianglesMem, CL_TRUE,0, sizeof(Triangle) * triangles.size(), &triangles[0], 0,0,0);
+	setUpSceneBoxArgs();
 
-
-	err |= clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
-	err |= clSetKernelArg(sceneBBoxKernel,1 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(sceneBBoxKernel,2 , sizeof(cl_int), &lengthOfObjects);
-	err |= clSetKernelArg(sceneBBoxKernel,3 , sizeof(cl_mem),&minMem);
-	err |= clSetKernelArg(sceneBBoxKernel,4 , sizeof(cl_mem) , &maxMem);
 
 	if(err != CL_SUCCESS) {
 		perror("Couldn't set the sceneBBoxKernel argument");
@@ -285,39 +311,17 @@ void RenderWindow::updateBBox()
 }
 void RenderWindow::updateCells()
 {
-	initCellWorkSize[0] = objects.size();
-
-	wx =box.max[0] - box.min[0];
-	wy =box.max[1] - box.min[1];
-	wz =box.max[2] - box.min[2];
-
-	s = pow((wx * wy * wz)/objects.size(), 0.3333333);
-
-	nx = multi * wx / s + 1;
-	ny = multi * wy / s + 1;
-	nz = multi * wz / s + 1;
-
-	numCells = nx * ny * nz;
-	numCells = numCells;
+	initCellWorkSize = objects.size();
+	calculateVoxelSize();
 
 
-	cells.resize(numCells);
-	//cBoxes.resize(numCells);
-	initCellWorkSize[1] = numCells;
+
+	cells.resize(totalVoxels);
 	numberOfCellObjects = 0;
-	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * numCells, &cells[0],&err);
-	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY ,sizeof(BBox) * numCells, NULL,&err);
+	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * totalVoxels, &cells[0],&err);
 	sumMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int), &numberOfCellObjects,&err);
-
-
-	err|=clSetKernelArg(initializeCellsKernel,0 , sizeof(cl_mem), &objectMem);
-	err|=clSetKernelArg(initializeCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
-	err|=clSetKernelArg(initializeCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
-	err|=clSetKernelArg(initializeCellsKernel,3 , sizeof(cl_int), &nx);
-	err|=clSetKernelArg(initializeCellsKernel,4 , sizeof(cl_int), &ny);
-	err|=clSetKernelArg(initializeCellsKernel,5 , sizeof(cl_int), &nz);
-	err|=clSetKernelArg(initializeCellsKernel, 6, sizeof(cl_mem),&cellsBoxMem );
-	err|=clSetKernelArg(initializeCellsKernel, 7, sizeof(cl_mem), &sumMem );
+	//1391 = 1
+	setUpCellArgs();
 
 	if(err != CL_SUCCESS) {
 		perror("Couldn't set the initializeCellsKernel argument");
@@ -325,42 +329,34 @@ void RenderWindow::updateCells()
 	}
 
 
-	err|=clEnqueueNDRangeKernel(queue, initializeCellsKernel, 2 ,
-		NULL, initCellWorkSize, 
+	err|=clEnqueueNDRangeKernel(queue, initializeCellsKernel, 1 ,
+		NULL, &initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
-	err|=clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * numCells, &cells[0],0,0,0);
-	//err|=clEnqueueReadBuffer(queue,cellsBoxMem,CL_TRUE,0, sizeof(BBox) * numCells, &cBoxes[0],0,0,0);
+	err|=clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * totalVoxels, &cells[0],0,0,0);
 	err|=clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
 
 
-	cellIndices.resize(numCells);
+	cellIndices.resize(totalVoxels);
 
 
 	cellIndices[0] = cells[0]; 
-	for (int i = 1; i < numCells; i++)
+	for (int i = 1; i < totalVoxels; i++)
 	{
 		cellIndices[i] = cells[i] + cellIndices[i-1];
 	}
 
-	cellIncrements.resize(numCells);
+	cellIncrements.resize(totalVoxels);
 	objectIndices.resize(numberOfCellObjects);
 
 
 	cellIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, cellIndices.size() * sizeof(cl_int),&cellIndices[0], &err);
 	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
-	cellIncrementsMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int)* numCells, &cellIncrements[0], &err);
+	cellIncrementsMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int)* totalVoxels, &cellIncrements[0], &err);
 
-
-	err|=clSetKernelArg(findObjectCellsKernel,0 , sizeof(cl_mem), &objectMem);
-	err|=clSetKernelArg(findObjectCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
-	err|=clSetKernelArg(findObjectCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
-	err|=clSetKernelArg(findObjectCellsKernel,3 , sizeof(cl_mem) , &cellIndicesMem);
-	err|=clSetKernelArg(findObjectCellsKernel,4 , sizeof(cl_mem)  , &objectIndicesMem);
-	err|=clSetKernelArg(findObjectCellsKernel,5 , sizeof(cl_mem) , &cellsBoxMem);
-	err|=clSetKernelArg(findObjectCellsKernel,6 , sizeof(cl_mem) , &cellIncrementsMem);
-	err|=clEnqueueNDRangeKernel(queue, findObjectCellsKernel, 2 ,
-		NULL, initCellWorkSize, 
+	setUpCellObjectArgs();
+	err|=clEnqueueNDRangeKernel(queue, findObjectCellsKernel, 1 ,
+		NULL, &initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
 }
@@ -374,7 +370,7 @@ float RenderWindow::getInterval()
 }
 void RenderWindow::releaseUpdate()
 {
-	
+
 	if(objectPaths.size() > 0)
 	{
 		for (int i = 0; i < objectPaths.size(); i++)
@@ -389,13 +385,11 @@ void RenderWindow::releaseUpdate()
 	cellIncrements.clear();
 	minArr.clear();
 	maxArr.clear();
-	//cBoxes.clear();
 	cells.clear();
 	clReleaseMemObject(sumMem);
 	clReleaseMemObject(objectMem);//
 	clReleaseMemObject(lightMem);//
 	clReleaseMemObject(cellsMem);//
-	clReleaseMemObject(cellsBoxMem);//
 	clReleaseMemObject(objectIndicesMem);//
 	clReleaseMemObject(cellIndicesMem);//
 	clReleaseMemObject(cellIncrementsMem);//
@@ -546,7 +540,7 @@ void RenderWindow::initializeProgram()
 }
 void RenderWindow::initializeSceneBBox()
 {
-	cl_int lengthOfObjects = objects.size();
+	numberOfObjects = objects.size();
 	int globalObjectSize = nextPowerOfTwo(objects.size());
 
 	minArr.resize(globalObjectSize);
@@ -556,11 +550,7 @@ void RenderWindow::initializeSceneBBox()
 	maxMem = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(cl_float3) * globalObjectSize, &maxArr[0],&err);
 	//finish setting up mem stuff in header file...
 
-	err |= clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
-	err |= clSetKernelArg(sceneBBoxKernel,1 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(sceneBBoxKernel,2 , sizeof(cl_int), &lengthOfObjects);
-	err |= clSetKernelArg(sceneBBoxKernel,3 , sizeof(cl_mem),&minMem);
-	err |= clSetKernelArg(sceneBBoxKernel,4 , sizeof(cl_mem) , &maxMem);
+	setUpSceneBoxArgs();
 
 	if(err != CL_SUCCESS) {
 		perror("Couldn't set the sceneBBoxKernel argument");
@@ -584,79 +574,58 @@ void RenderWindow::initializeSceneBBox()
 
 
 }
-const cl_uint RenderWindow::NUMBER_OF_SPHERES = 2;
 void RenderWindow::initializeCells()
 {
-	initCellWorkSize[0] = objects.size();
+	QElapsedTimer t;
+	t.start();
+	initCellWorkSize = objects.size();
 
-	float wx =box.max[0] - box.min[0];
-	float wy =box.max[1] - box.min[1];
-	float wz =box.max[2] - box.min[2];
+	calculateVoxelSize();
 
-	float s = pow((wx * wy * wz)/objects.size(), 0.3333333);
-
-	nx = multi * wx / s + 1;
-	ny = multi * wy / s + 1;
-	nz = multi * wz / s + 1;
-
-	numCells = nx * ny * nz;
 	numberOfCellObjects = 0;
-	cells.resize(numCells);
-	cBoxes.resize(numCells);
-	initCellWorkSize[1] = numCells;
-	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * numCells, &cells[0],&err);
-	cellsBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY ,sizeof(BBox) * numCells, NULL,&err);
+	cells.resize(totalVoxels);
+	cellsMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int) * totalVoxels, &cells[0],&err);
 	sumMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR ,sizeof(int), &numberOfCellObjects,&err);
 
 
-	err |= clSetKernelArg(initializeCellsKernel,0 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(initializeCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
-	err |= clSetKernelArg(initializeCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
-	err |= clSetKernelArg(initializeCellsKernel,3 , sizeof(cl_int), &nx);
-	err |= clSetKernelArg(initializeCellsKernel,4 , sizeof(cl_int), &ny);
-	err |= clSetKernelArg(initializeCellsKernel,5 , sizeof(cl_int), &nz);
-	err |= clSetKernelArg(initializeCellsKernel, 6, sizeof(cl_mem),&cellsBoxMem );
-	err |= clSetKernelArg(initializeCellsKernel, 7, sizeof(cl_mem), &sumMem );
+	setUpCellArgs();
 
 	if(err != CL_SUCCESS) {
 		perror("Couldn't set the initializeCellsKernel argument");
 		exit(1);   
 	}
 
-	err = clEnqueueNDRangeKernel(queue, initializeCellsKernel, 2 ,
-		NULL, initCellWorkSize, 
+	err = clEnqueueNDRangeKernel(queue, initializeCellsKernel, 1 ,
+		NULL, &initCellWorkSize, 
 		NULL, 0, NULL, NULL);
-	clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * numCells, &cells[0],0,0,0);
-	clEnqueueReadBuffer(queue,cellsBoxMem,CL_TRUE,0, sizeof(BBox) * numCells, &cBoxes[0],0,0,0);
+
+	clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * totalVoxels, &cells[0],0,0,0);
 	clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
 
 
-	cellIndices.resize(numCells);
+	cellIndices.resize(totalVoxels);
 
 	cellIndices[0] = cells[0]; 
-	for (int i = 1; i < numCells; i++)
+
+
+	for (int i = 1; i < totalVoxels; i++)
 	{
 		cellIndices[i] = cells[i] + cellIndices[i-1];
 	}
 
-	cellIncrements.resize(numCells);
+	cellIncrements.resize(totalVoxels);
 	objectIndices.resize(numberOfCellObjects);
 
 
 	cellIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, cellIndices.size() * sizeof(cl_int),&cellIndices[0], &err);
 	objectIndicesMem = clCreateBuffer(context,CL_MEM_COPY_HOST_PTR, sizeof(cl_int) * numberOfCellObjects, &objectIndices[0], &err );
-	cellIncrementsMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int)* numCells, &cellIncrements[0], &err);
+	cellIncrementsMem = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int)* totalVoxels, &cellIncrements[0], &err);
+	long result = t.elapsed();
 
 }
 void RenderWindow::initializeCellObjects()
 {
-	err |= clSetKernelArg(findObjectCellsKernel,0 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(findObjectCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
-	err |= clSetKernelArg(findObjectCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
-	err |= clSetKernelArg(findObjectCellsKernel,3 , sizeof(cl_mem) , &cellIndicesMem);
-	err |= clSetKernelArg(findObjectCellsKernel,4 , sizeof(cl_mem)  , &objectIndicesMem);
-	err |= clSetKernelArg(findObjectCellsKernel,5 , sizeof(cl_mem) , &cellsBoxMem);
-	err |= clSetKernelArg(findObjectCellsKernel,6 , sizeof(cl_mem) , &cellIncrementsMem);
+	setUpCellObjectArgs();
 
 	if(err != CL_SUCCESS) {
 		perror("Couldn't set the findObjectCells argument");
@@ -664,33 +633,13 @@ void RenderWindow::initializeCellObjects()
 	} 
 
 	err = clEnqueueNDRangeKernel(queue, findObjectCellsKernel, 2 ,
-		NULL, initCellWorkSize, 
+		NULL, &initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 }
 void RenderWindow::initializeDrawScene()
 {
 
-	err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
-	err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
-	err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_sampler), &sampler);
-	err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
-	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
-	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &trianglesMem);
-
-	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem), &lightMem);
-	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
-	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
-	err |= clSetKernelArg(drawSceneKernel,10, sizeof(BBox), &box);
-	err |= clSetKernelArg(drawSceneKernel, 11, sizeof(cl_mem), &cellsMem);
-	err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_int), &nx);
-	err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_int), &ny);
-	err |= clSetKernelArg(drawSceneKernel,14 , sizeof(cl_int), &nz);
-	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &cellIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 16, sizeof(cl_mem), &objectIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 17, sizeof(Camera), &camera);
-	err |= clSetKernelArg(drawSceneKernel,18 , sizeof(cl_int), &samples);
-	err |= clSetKernelArg(drawSceneKernel,19 , sizeof(cl_int), &sampleSquared);
+	setUpDrawSceneArgs();
 
 
 	if(err != CL_SUCCESS) {
@@ -798,17 +747,118 @@ void RenderWindow::initializeCL()
 	initializeMemory();
 	profileTimer.start();
 	timer.start();
-	float time = timer.elapsed()/ 1000.0f;
+
+	float times[5];
+
 	initializeSceneBBox();
-	cout << "SceneBox : " << (profileTimer.elapsed()/1000.0f) << endl;
+	times[0] =  (profileTimer.elapsed()/1000.0f);
 	profileTimer.start();
 	initializeCells();
-	cout << "Initialize Cells : " << (profileTimer.elapsed()/1000.0f) << endl;
+	times[1] =  (profileTimer.elapsed()/1000.0f);
+
 	profileTimer.start();
 	initializeCellObjects();
-	cout << "Initialize Cell Objects : " << (profileTimer.elapsed()/1000.0f) << endl;
+	times[2] =  (profileTimer.elapsed()/1000.0f);
+
 	profileTimer.start();
 	initializeDrawScene();
-	cout << "DrawScene : " << (profileTimer.elapsed()/1000.0f) << endl;
-	cout << "Done!" << endl;
+	times[3] =  (profileTimer.elapsed()/1000.0f);
+
+	times[4] = timer.elapsed() / 1000.0f;
+
+
+	cout << "Init SceneBox : " << times[0] << endl;
+	cout << "Init Cells : " << times[1] << endl;
+	cout << "Init Cell Objects : " << times[2] << endl;
+	cout << "Init DrawScene : " << times[3] << endl;
+	cout << "Init total : " << times[4] << endl;
+
+}
+
+void RenderWindow::setUpDrawSceneArgs()
+{
+	err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
+	err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
+	err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_sampler), &sampler);
+	err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
+	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
+	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem), &objectMem);
+	//err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &trianglesMem);
+	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem), &lightMem);
+	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
+	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
+	err |= clSetKernelArg(drawSceneKernel,10, sizeof(BBox), &box);
+	err |= clSetKernelArg(drawSceneKernel, 11, sizeof(cl_mem), &cellsMem);
+	err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_float3), &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawSceneKernel, 13, sizeof(cl_mem), &cellIndicesMem);
+	err |= clSetKernelArg(drawSceneKernel, 14, sizeof(cl_mem), &objectIndicesMem);
+	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawSceneKernel,16 , sizeof(cl_int), &samples);
+	err |= clSetKernelArg(drawSceneKernel,17 , sizeof(cl_int), &sampleSquared);
+	err |= clSetKernelArg(drawSceneKernel,18 , sizeof(cl_float3) , &delta[0]);
+	err |= clSetKernelArg(drawSceneKernel,19 , sizeof(cl_float3) , &deltaInv[0]);
+	err |= clSetKernelArg(drawSceneKernel,20 , sizeof(cl_float3) , &voxelInvWidth[0]);
+	err |= clSetKernelArg(drawSceneKernel,21 , sizeof(cl_float3) , &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawSceneKernel,22 , sizeof(cl_float3) , &voxelWidth[0]);
+
+}
+void RenderWindow::setUpCellArgs()
+{
+	err |= clSetKernelArg(initializeCellsKernel,0 , sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(initializeCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
+	err |= clSetKernelArg(initializeCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
+	err |= clSetKernelArg(initializeCellsKernel,3 , sizeof(cl_float3), &numberOfVoxels[0]);
+	err |= clSetKernelArg(initializeCellsKernel, 4, sizeof(cl_float3),&voxelInvWidth[0] );
+	err |= clSetKernelArg(initializeCellsKernel, 5, sizeof(cl_mem), &sumMem );
+}
+void RenderWindow::setUpCellObjectArgs()
+{
+	err |= clSetKernelArg(findObjectCellsKernel,0 , sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(findObjectCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
+	err |= clSetKernelArg(findObjectCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
+	err |= clSetKernelArg(findObjectCellsKernel,3 , sizeof(cl_mem) , &cellIndicesMem);
+	err |= clSetKernelArg(findObjectCellsKernel,4 , sizeof(cl_mem)  , &objectIndicesMem);
+	//err |= clSetKernelArg(findObjectCellsKernel,5 , sizeof(cl_mem) , &cellsBoxMem);
+	err |= clSetKernelArg(findObjectCellsKernel,5 , sizeof(cl_mem) , &cellIncrementsMem);
+	err |= clSetKernelArg(findObjectCellsKernel,6 , sizeof(cl_float3) , &delta[0]);
+	err |= clSetKernelArg(findObjectCellsKernel,7 , sizeof(cl_float3) , &deltaInv[0]);
+	err |= clSetKernelArg(findObjectCellsKernel,8 , sizeof(cl_float3) , &voxelInvWidth[0]);
+	err |= clSetKernelArg(findObjectCellsKernel,9 , sizeof(cl_float3) , &numberOfVoxels[0]);
+}
+void RenderWindow::setUpSceneBoxArgs()
+{
+	err |= clSetKernelArg(sceneBBoxKernel,0 , sizeof(cl_mem), &boundingBoxMem);
+	err |= clSetKernelArg(sceneBBoxKernel,1 , sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(sceneBBoxKernel,2 , sizeof(cl_int), &numberOfObjects);
+	err |= clSetKernelArg(sceneBBoxKernel,3 , sizeof(cl_mem),&minMem);
+	err |= clSetKernelArg(sceneBBoxKernel,4 , sizeof(cl_mem) , &maxMem);
+
+}
+
+
+//Grid Helper functions 
+
+void RenderWindow::calculateVoxelSize()
+{
+	delta = box.max - box.min;
+	deltaInv = 1.0f / delta;
+	float voxelPerUnit = findVoxelsPerUnit();
+
+	for (int i = 0; i < 3; i++)
+	{
+		numberOfVoxels[i] = (int)(delta[i] * voxelPerUnit);
+		numberOfVoxels[i] = glm::clamp((int) numberOfVoxels[i], MIN_VOXELS,MAX_VOXELS);
+		voxelWidth[i] = delta[i]/ numberOfVoxels[i];
+		voxelInvWidth[i] = (voxelWidth[i] == 0.0f) ? 0.0f : 1.0f / voxelWidth[i];
+	}
+
+	totalVoxels = numberOfVoxels[0] * numberOfVoxels[1]* numberOfVoxels[2];
+}
+float RenderWindow::findVoxelsPerUnit()
+{
+	int maxAxis = box.maxExtent();
+	float invWidth = 1.0f/delta[maxAxis];
+	float cubeRoot = 3.0f * pow((float) objects.size(),invWidth);
+	return cubeRoot * invWidth;
+
 }

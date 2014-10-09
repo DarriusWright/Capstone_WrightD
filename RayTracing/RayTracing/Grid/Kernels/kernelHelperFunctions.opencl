@@ -15,7 +15,6 @@ typedef struct
 
 }Material;
 
-
 typedef struct
 {
 	float3 v0;
@@ -128,7 +127,7 @@ TriangleInfo triangleCollision(Ray ray, Triangle triangle)
 	e1=  V2 - V1;
 	e2=  V3 - V1;
 	//Begin calculating determinant - also used to calculate u parameter
-	P = cross( ray.direction, e2);
+	P = cross( ray.direction.xyz, e2);
 	//if determinant is near zero, ray lies in plane of triangle
 	det = dot(e1, P);
 	//NOT CULLING
@@ -136,7 +135,7 @@ TriangleInfo triangleCollision(Ray ray, Triangle triangle)
 	inv_det = 1.f / det;
 
 	//calculate distance from V1 to ray origin
-	T =  ray.origin - V1;
+	T =  ray.origin.xyz - V1;
 
 	//Calculate u parameter and test bound
 	u = dot(T, P) * inv_det;
@@ -147,7 +146,7 @@ TriangleInfo triangleCollision(Ray ray, Triangle triangle)
 	Q = cross( T, e1);
 
 	//Calculate V parameter and test bound
-	v = dot(ray.direction, Q) * inv_det;
+	v = dot(ray.direction.xyz, Q) * inv_det;
 	//The intersection lies outside of the triangle
 	if (v < 0.f || u + v  > 1.f) return tri;
 
@@ -175,7 +174,41 @@ bool insideBBox(float3 origin,float3 minPoint, float3 maxPoint)
 	(origin.z >= minPoint.z && origin.z <= maxPoint.z);
 }
 
+float surfaceArea(BBox box)
+{
+	float3 d = box.max - box.min;
+	return 2.0f * (d.x * d.y + d.x * d.z + d.y * d.z);
+}
 
+float volumne(BBox box)
+{
+	float3 d = box.max - box.min;
+	return d.x * d.y * d.z;
+}
+
+int maxExtent(BBox box)
+{
+	float3 d = box.max - box.min;
+	return (d.x > d.y && d.x > d.z) ? 0 : (d.y > d.z) ? 1 : 2;
+}
+
+int3 positionToVoxel(float3 position,  float3 invWidth, float3 numberOfVoxels , BBox sceneBox)
+{
+	int3 voxelPosition = convert_int3((position - sceneBox.min) * invWidth);
+	int3 nVoxels = convert_int3(numberOfVoxels);
+	voxelPosition = clamp(voxelPosition,(int3)(0,0,0) , nVoxels);
+	return voxelPosition;
+}
+
+float3 voxelToPosition(BBox sceneBox, int3 position, float3 width)
+{
+	return sceneBox.min + (convert_float3(position) * width);
+}
+
+int findVoxelIndex(int3 position , float3 cellDimensions)
+{
+	return position.x + position.y * cellDimensions.x + position.z * cellDimensions.x * cellDimensions.y;
+}
 
 HitReturn hitBBox(Ray ray,float3 minPoint, float3 maxPoint)
 {
@@ -258,8 +291,8 @@ Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 d
 	Ray ray;
 	float2 pixelToRay = (float2)((pixelLocation.x - (0.5f * width)) + (dim.x + 0.5)/sampleNumber, (pixelLocation.y - (0.5 * height)) + (dim.y + 0.5)/sampleNumber);
 
-	ray.origin = camera.position;
-	ray.direction = normalize((pixelToRay.x * -camera.u) + (pixelToRay.y * -camera.v) - (camera.distance * camera.w));
+	ray.origin.xyz = camera.position;
+	ray.direction.xyz = normalize((pixelToRay.x * -camera.u) + (pixelToRay.y * -camera.v) - (camera.distance * camera.w));
 
 
 	return ray;
@@ -267,9 +300,9 @@ Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 d
 
 SphereInfo sphereIntersection(Ray ray, float3 position, float radius)
 {
-	float3 originToShape = ray.origin - position;
-	float a = dot(ray.direction, ray.direction);
-	float b = 2.0f * dot(originToShape, ray.direction);
+	float3 originToShape = ray.origin.xyz - position;
+	float a = dot(ray.direction.xyz, ray.direction.xyz);
+	float b = 2.0f * dot(originToShape, ray.direction.xyz);
 	float c = dot(originToShape, originToShape) - radius * radius;
 	float disc = b*b - 4.0f * a * c;
 	float t ;
@@ -282,8 +315,8 @@ SphereInfo sphereIntersection(Ray ray, float3 position, float radius)
 		t = (-b-e)/denom;
 		if(t > epsilion)	
 		{
-			s.normal = (float3) (((ray.origin - position) + t * ray.direction)/ radius);
-			s.intersectionPoint = (ray.origin - position) + t * ray.direction;
+			s.normal = (float3) (((ray.origin.xyz - position) + t * ray.direction.xyz)/ radius);
+			s.intersectionPoint = (ray.origin.xyz - position) + t * ray.direction.xyz;
 			s.hasIntersection = true;
 			s.distanceToIntersection = t;
 			return s;
@@ -292,9 +325,9 @@ SphereInfo sphereIntersection(Ray ray, float3 position, float radius)
 		t = (-b + e) / denom;
 		if(t > epsilion)
 		{
-			s.normal = (float3)(((ray.origin - position) + t * ray.direction)/radius);
+			s.normal = (float3)(((ray.origin.xyz - position) + t * ray.direction.xyz)/radius);
 			s.hasIntersection = true;
-			s.intersectionPoint = (ray.origin - position) + t * ray.direction;
+			s.intersectionPoint = (ray.origin.xyz - position) + t * ray.direction.xyz;
 			s.distanceToIntersection = t;
 			return s;
 		}

@@ -1,7 +1,7 @@
 #pragma once
 #include <glm.hpp>
 #include<ExportHeader.h>
-static const float CAMERA_SPEED = 5.2f;
+static const float CAMERA_SPEED = 0.2f;
 
 class Camera
 {

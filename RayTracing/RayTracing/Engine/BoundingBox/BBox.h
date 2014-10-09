@@ -16,5 +16,23 @@ public :
 	glm::vec3 max;
 	float d2;
 
+	float surfaceArea()
+	{
+		glm::vec3 d = max - min;
+		return 2.0f * (d.x * d.y + d.x * d.z + d.y * d.z);
+	}
+
+	float volumne()
+	{
+		glm::vec3 d = max - min;
+		return d.x * d.y * d.z;
+	}
+
+	int maxExtent()
+	{
+		glm::vec3 d = max - min;
+		return (d.x > d.y && d.x > d.z) ? 0 : (d.y > d.z) ? 1 : 2;
+	}
+
 
 };
