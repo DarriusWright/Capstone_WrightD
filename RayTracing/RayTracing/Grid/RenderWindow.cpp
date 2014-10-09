@@ -14,12 +14,12 @@ RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), g
 	box = b;
 	setSamples(1);
 	QElapsedTimer t;
-	
+
 	initializeProgram();
 	construct();
-	
 
-	
+
+
 }
 RenderWindow::~RenderWindow(void)
 {
@@ -169,52 +169,52 @@ void RenderWindow::construct()
 
 	layout = new QHBoxLayout();
 	Light light = {{{0.925,0.835,0.102}, {0.73,0.724,0.934},{0.2,0.52,0.96}}, {2.0f,2.0f,200.0f}};
-	//addMesh("D:/Capstone/RayTracing/RayTracing/Grid/basicCube.obj");
+	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/suzy.obj");
 
-	Random random = Random::getInstance();
-	for(int i = 0; i < NUMBER_OF_SPHERES; i++)
-	{
+	//Random random = Random::getInstance();
+	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
+	//{
 
-		Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
-		{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
-		{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
-		glm::vec4(random.getRandomFloat(-10.0f,10.0f), random.getRandomFloat(-10.0f,10.0f), random.getRandomFloat(0.0f,10.0f),2.0f)};
-		//spheres.push_back(sphere);
+	//	Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
+	//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
+	//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
+	//	glm::vec4(random.getRandomFloat(-10.0f,10.0f), random.getRandomFloat(-10.0f,10.0f), random.getRandomFloat(0.0f,10.0f),2.0f)};
+	//	//spheres.push_back(sphere);
 
-		Object object; 
-	
-		BBox b = {
-			glm::vec3(sphere.getMinX(),
-			sphere.getMinY(),
-			sphere.getMinZ()),0.0f,
-			glm::vec3(
-			sphere.getMaxX(),
-			sphere.getMaxY(),
-			sphere.getMaxZ()),0.0f
-			
-		};
-		object.material = sphere.material;
-		object.box = b;
-		cl_int2 indices = {0,0};
-		object.triangleIndex =-1;
-		object.index = i;
-		object.position = sphere.position;
+	//	Object object; 
 
+	//	BBox b = {
+	//		glm::vec3(sphere.getMinX(),
+	//		sphere.getMinY(),
+	//		sphere.getMinZ()),0.0f,
+	//		glm::vec3(
+	//		sphere.getMaxX(),
+	//		sphere.getMaxY(),
+	//		sphere.getMaxZ()),0.0f
 
-		objects.push_back(object);
-		float x;
-		float y;
-
-		box.min[0] = glm::min((sphere.getMinX() + sphere.position[0]) ,box.min[0]);
-		box.min[1] = glm::min(sphere.getMinY()  +  sphere.position[1],box.min[1]);
-		box.min[2] = glm::min(sphere.getMinZ()	 + sphere.position[2],box.min[2]);
-
-		box.max[0] = glm::max(sphere.getMaxX()+ sphere.position[0],box.max[0]);
-		box.max[1] = glm::max(sphere.getMaxY()+  sphere.position[1],box.max[1]);
-		box.max[2] = glm::max(sphere.getMaxZ()+ sphere.position[2],box.max[2]);
+	//	};
+	//	object.material = sphere.material;
+	//	object.box = b;
+	//	cl_int2 indices = {0,0};
+	//	object.triangleIndex =-1;
+	//	object.index = i;
+	//	object.position = sphere.position;
 
 
-	}
+	//	objects.push_back(object);
+	//	float x;
+	//	float y;
+
+	//	box.min[0] = glm::min((sphere.getMinX() + sphere.position[0]) ,box.min[0]);
+	//	box.min[1] = glm::min(sphere.getMinY()  +  sphere.position[1],box.min[1]);
+	//	box.min[2] = glm::min(sphere.getMinZ()	 + sphere.position[2],box.min[2]);
+
+	//	box.max[0] = glm::max(sphere.getMaxX()+ sphere.position[0],box.max[0]);
+	//	box.max[1] = glm::max(sphere.getMaxY()+  sphere.position[1],box.max[1]);
+	//	box.max[2] = glm::max(sphere.getMaxZ()+ sphere.position[2],box.max[2]);
+
+
+	//}
 
 	lights.push_back(light);
 	numberOfObjects = objects.size();
@@ -231,7 +231,7 @@ void RenderWindow::construct()
 
 
 	QImage r(readBuffer,windowWidth,windowHeight,QImage::Format::Format_RGBA8888);
-	readImage  =r;
+	readImage = r;
 }
 void RenderWindow::updateDrawScene()
 {
@@ -244,7 +244,7 @@ void RenderWindow::updateDrawScene()
 }
 void RenderWindow::updateScene()
 {
-	//releaseUpdate();
+	releaseUpdate();
 	timer.start();	
 	handleKeyInput();
 	camera.update();
@@ -253,14 +253,8 @@ void RenderWindow::updateScene()
 	profileTimer.start();
 
 	updateBBox();
-	float bbox = profileTimer.elapsed();
-	profileTimer.start();
-
 	updateCells();
-	float cells = profileTimer.elapsed();
-	profileTimer.start();
 	updateDrawScene();
-	float draw = profileTimer.elapsed();
 
 	imageLabel.setPixmap(QPixmap::fromImage(readImage));
 	float drawTimer = profileTimer.elapsed()/1000.0f;
@@ -359,7 +353,12 @@ void RenderWindow::updateCells()
 		NULL, &initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
+
+	clEnqueueReadBuffer(queue,objectIndicesMem,CL_TRUE,0, sizeof(int) * numberOfCellObjects, &objectIndices[0],0,0,0);
 }
+
+
+
 float RenderWindow::getFPS()
 {
 	return fps;
@@ -367,6 +366,28 @@ float RenderWindow::getFPS()
 float RenderWindow::getInterval()
 {
 	return interval;
+}
+
+void RenderWindow::releaseDrawScene()
+{
+	if(triangles.size())clReleaseMemObject(trianglesMem);
+	if(objects.size())clReleaseMemObject(objectMem);//
+	if(lights.size())clReleaseMemObject(lightMem);//
+}
+void RenderWindow::releaseCells()
+{
+	clReleaseMemObject(sumMem);
+	clReleaseMemObject(cellsMem);//
+	clReleaseMemObject(objectIndicesMem);//
+	clReleaseMemObject(cellIndicesMem);//
+	clReleaseMemObject(cellIncrementsMem);//
+
+}
+void RenderWindow::releaseBBox()
+{
+	clReleaseMemObject(boundingBoxMem);
+	clReleaseMemObject(minMem);
+	clReleaseMemObject(maxMem);
 }
 void RenderWindow::releaseUpdate()
 {
@@ -386,17 +407,11 @@ void RenderWindow::releaseUpdate()
 	minArr.clear();
 	maxArr.clear();
 	cells.clear();
-	clReleaseMemObject(sumMem);
-	clReleaseMemObject(objectMem);//
-	clReleaseMemObject(lightMem);//
-	clReleaseMemObject(cellsMem);//
-	clReleaseMemObject(objectIndicesMem);//
-	clReleaseMemObject(cellIndicesMem);//
-	clReleaseMemObject(cellIncrementsMem);//
-	clReleaseMemObject(boundingBoxMem);
-	clReleaseMemObject(trianglesMem);//
-	clReleaseMemObject(minMem);
-	clReleaseMemObject(maxMem);
+
+	releaseBBox();
+	releaseCells();
+	releaseDrawScene();
+
 
 	//clReleaseMemObject(minMem);//
 	//clReleaseMemObject(maxMem);//
@@ -632,7 +647,7 @@ void RenderWindow::initializeCellObjects()
 		exit(1);   
 	} 
 
-	err = clEnqueueNDRangeKernel(queue, findObjectCellsKernel, 2 ,
+	err = clEnqueueNDRangeKernel(queue, findObjectCellsKernel, 1 ,
 		NULL, &initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 }
@@ -783,7 +798,7 @@ void RenderWindow::setUpDrawSceneArgs()
 	err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
 	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
 	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem), &objectMem);
-	//err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &trianglesMem);
+	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem),(triangles.size())? &trianglesMem : nullptr);
 	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem), &lightMem);
 	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
 	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
@@ -807,7 +822,7 @@ void RenderWindow::setUpCellArgs()
 	err |= clSetKernelArg(initializeCellsKernel,0 , sizeof(cl_mem), &objectMem);
 	err |= clSetKernelArg(initializeCellsKernel,1 , sizeof(cl_mem), &boundingBoxMem);
 	err |= clSetKernelArg(initializeCellsKernel,2 , sizeof(cl_mem) , &cellsMem);
-	err |= clSetKernelArg(initializeCellsKernel,3 , sizeof(cl_float3), &numberOfVoxels[0]);
+	err |= clSetKernelArg(initializeCellsKernel,3 , sizeof(cl_float3), &numberOfVoxels[0]); //checks out
 	err |= clSetKernelArg(initializeCellsKernel, 4, sizeof(cl_float3),&voxelInvWidth[0] );
 	err |= clSetKernelArg(initializeCellsKernel, 5, sizeof(cl_mem), &sumMem );
 }
@@ -823,7 +838,7 @@ void RenderWindow::setUpCellObjectArgs()
 	err |= clSetKernelArg(findObjectCellsKernel,6 , sizeof(cl_float3) , &delta[0]);
 	err |= clSetKernelArg(findObjectCellsKernel,7 , sizeof(cl_float3) , &deltaInv[0]);
 	err |= clSetKernelArg(findObjectCellsKernel,8 , sizeof(cl_float3) , &voxelInvWidth[0]);
-	err |= clSetKernelArg(findObjectCellsKernel,9 , sizeof(cl_float3) , &numberOfVoxels[0]);
+	err |= clSetKernelArg(findObjectCellsKernel,9 , sizeof(cl_float3) , &numberOfVoxels[0]); // checks out
 }
 void RenderWindow::setUpSceneBoxArgs()
 {
@@ -837,7 +852,7 @@ void RenderWindow::setUpSceneBoxArgs()
 
 
 //Grid Helper functions 
-
+//this can't be broken
 void RenderWindow::calculateVoxelSize()
 {
 	delta = box.max - box.min;
@@ -853,6 +868,15 @@ void RenderWindow::calculateVoxelSize()
 	}
 
 	totalVoxels = numberOfVoxels[0] * numberOfVoxels[1]* numberOfVoxels[2];
+
+	//Testing
+	glm::vec3 min = positionToVoxel(objects[0].box.min + glm::vec3(objects[0].position), voxelInvWidth, numberOfVoxels, box);
+	glm::vec3 max = positionToVoxel(objects[0].box.max + glm::vec3(objects[0].position), voxelInvWidth, numberOfVoxels, box);
+
+	int minNumber = findVoxelIndex(min,numberOfVoxels);
+	int maxNumber = findVoxelIndex(max,numberOfVoxels);
+
+
 }
 float RenderWindow::findVoxelsPerUnit()
 {

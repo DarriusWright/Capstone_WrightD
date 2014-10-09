@@ -128,6 +128,9 @@ private:
 	void setUpCellArgs();
 	void setUpCellObjectArgs();
 
+	void releaseDrawScene();
+	void releaseCells();
+	void releaseBBox();
 
 
 
@@ -185,6 +188,7 @@ private:
 	cl_int numberOfObjects;
 	size_t globalWorkSize[2];
 	size_t initCellWorkSize;
+	size_t dCellWork[2];
 	
 	size_t sceneBBoxGlobalWorkSize;
 
@@ -205,6 +209,33 @@ private:
 	int inline nextPowerOfTwo(int number)
 	{
 		return pow(2, ceil(log(number)/log(2)));
+	}
+
+	inline int findVoxelIndex(glm::vec3 position , glm::vec3 cellDimensions)
+	{
+		return position.x + position.y * (int)cellDimensions.x + position.z * (int)cellDimensions.x * (int)cellDimensions.y;
+	}
+
+	inline glm::vec3 voxelToPosition(BBox sceneBox, glm::vec3 position, glm::vec3 width)
+	{
+		return sceneBox.min + (position * width);
+	}
+
+	inline glm::vec3 positionToVoxel(glm::vec3 position,  glm::vec3 invWidth, glm::vec3 numberOfVoxels , BBox sceneBox)
+	{
+		glm::vec3 voxelPosition = ((position - sceneBox.min) * invWidth);
+		glm::vec3 nVoxels = (numberOfVoxels);
+		voxelPosition = glm::clamp(voxelPosition,glm::vec3(0.0f,0.0f,0.0f) , numberOfVoxels);
+		voxelPosition = glm::floor(voxelPosition);
+		return voxelPosition;
+	}
+	inline glm::vec3 findVoxelPosition(int index , glm::vec3 cellDimensions)
+	{
+		glm::vec3 position;
+		position.z = index / ((int)(cellDimensions.x* cellDimensions.y));
+		position.y = (index % ((int)(cellDimensions.x* cellDimensions.y))) / ((int)cellDimensions.x);
+		position.x = index - position.y * cellDimensions.x - position.z *cellDimensions.x *cellDimensions.y;
+		return glm::floor(position);
 	}
 
 public slots:

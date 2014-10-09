@@ -31,14 +31,36 @@ __kernel void initializeCells(__global Object * objects,__global BBox * box,__gl
 }
 
 */
+
 __kernel void initializeCells(__global Object * objects,__global BBox * box,__global int * cells,
-	float3 numberOfVoxels, float3 widthInverse, __global int * totalCells
-	)
+	float3 numberOfVoxels, float3 widthInverse, __global int * totalCells)
+/*{
+	int objectIndex = get_global_id(0);	
+	int cellsIndex = get_global_id(1);	
+
+	BBox cellBox;
+	
+	float3 minLocation = convert_float3(findVoxelPosition(cellsIndex, numberOfVoxels));
+
+
+	float3 cellDimensions = numberOfVoxels;
+	float3 delta = (box[0].max - box[0].min)/cellDimensions ;
+
+	cellBox.min = (float3)(box[0].min + (minLocation * delta));
+	cellBox.max = (float3)(box[0].min + delta + (minLocation * delta));
+
+	if(bboxObjectCollided(cellBox,objects[objectIndex]))
+	{
+		atom_inc(&cells[cellsIndex]);
+		atom_inc(&totalCells[0]);
+	}
+	
+}*/
 {
 	int objectIndex = get_global_id(0);	
 
-	int3 cellMin = positionToVoxel(objects[objectIndex].box.min + objects[objectIndex].position,widthInverse, numberOfVoxels,box[0] );
-	int3 cellMax = positionToVoxel(objects[objectIndex].box.max+ objects[objectIndex].position,widthInverse, numberOfVoxels,box[0] );
+	int3 cellMin = positionToVoxel(objects[objectIndex].box.min + objects[objectIndex].position.xyz,widthInverse, numberOfVoxels,box[0] );
+	int3 cellMax = positionToVoxel(objects[objectIndex].box.max+ objects[objectIndex].position.xyz,widthInverse, numberOfVoxels,box[0] );
 
 	for(int z = cellMin.z; z < cellMax.z; z++)
 	{
@@ -51,7 +73,4 @@ __kernel void initializeCells(__global Object * objects,__global BBox * box,__gl
 			}
 		}
 	}
-
-
 }
-

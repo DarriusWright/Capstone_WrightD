@@ -2,6 +2,26 @@ __kernel void findObjectCells(__global Object * objects,__global BBox * box,
 	__global int * cells,
  __global int * cellIndices,__global int * objectIndices ,
 	 __global int * cellIndexIncrement , float3 delta, float3 deltaInv, float3 widthInverse , float3 numberOfVoxels)
+/*{
+	int objectIndex = get_global_id(0);	
+	int cellsIndex = get_global_id(1);	
+
+
+	BBox cBox = createCellBox(cellsIndex,numberOfVoxels, delta, box[0]);
+
+	if(bboxObjectCollided(cBox,objects[objectIndex]) )
+	{
+		int currentIndex = (cellsIndex == 0) ?  0 : cellIndices[cellsIndex-1];
+
+		int offsetIndex = currentIndex + (atom_inc(&cellIndexIncrement[cellsIndex]));
+
+		objectIndices[offsetIndex] = objectIndex + 1;	
+			
+		
+		
+	}
+}
+*/
 {
 	int objectIndex = get_global_id(0);	
 

@@ -207,8 +207,26 @@ float3 voxelToPosition(BBox sceneBox, int3 position, float3 width)
 
 int findVoxelIndex(int3 position , float3 cellDimensions)
 {
-	return position.x + position.y * cellDimensions.x + position.z * cellDimensions.x * cellDimensions.y;
+	return position.x + position.y * (int)cellDimensions.x + position.z * (int)cellDimensions.x * (int)cellDimensions.y;
 }
+
+int3 findVoxelPosition(int index , float3 cellDimensions)
+{
+	int3 position;
+	position.z = index / ((int)(cellDimensions.x* cellDimensions.y));
+	position.y = (index % ((int)(cellDimensions.x* cellDimensions.y))) / ((int)cellDimensions.x);
+	position.x = index - position.y * cellDimensions.x - position.z *cellDimensions.x *cellDimensions.y;
+	return position;
+}
+
+BBox createCellBox(int index, float3 numberOfVoxels, float3 delta, BBox box)
+{
+	BBox retBox;
+	retBox.min = voxelToPosition(box,findVoxelPosition(index, numberOfVoxels),delta / numberOfVoxels );
+	retBox.max = retBox.min  + (delta / numberOfVoxels);
+	return retBox;
+}
+
 
 HitReturn hitBBox(Ray ray,float3 minPoint, float3 maxPoint)
 {
