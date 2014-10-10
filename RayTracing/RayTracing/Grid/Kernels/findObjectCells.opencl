@@ -30,11 +30,11 @@ __kernel void findObjectCells(__global Object * objects,__global BBox * box,
 	int3 cellMin = positionToVoxel(oBox.min + objects[objectIndex].position,widthInverse, numberOfVoxels,box[0] );
 	int3 cellMax = positionToVoxel(oBox.max+ objects[objectIndex].position,widthInverse, numberOfVoxels,box[0] );
 
-	for(int z = cellMin.z; z < cellMax.z; z++)
+	for(int z = cellMin.z; z <= cellMax.z; z++)
 	{
-		for(int y = cellMin.y; y < cellMax.y; y++)
+		for(int y = cellMin.y; y <= cellMax.y; y++)
 		{
-			for(int x = cellMin.x; x < cellMax.x; x++)
+			for(int x = cellMin.x; x <= cellMax.x; x++)
 			{
 				int cellsIndex = findVoxelIndex((int3)(x,y,z) , numberOfVoxels);
 				int currentIndex = (cellsIndex != 0) ?  cellIndices[cellsIndex-1] : 0;

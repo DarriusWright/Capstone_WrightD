@@ -169,7 +169,7 @@ void RenderWindow::construct()
 
 	layout = new QHBoxLayout();
 	Light light = {{{0.925,0.835,0.102}, {0.73,0.724,0.934},{0.2,0.52,0.96}}, {2.0f,2.0f,200.0f}};
-	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/suzy.obj");
+	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/basicCube.obj");
 
 	//Random random = Random::getInstance();
 	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
