@@ -147,8 +147,12 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 						}
 						int stepAxis =  (nextCrossing.x  < nextCrossing.y && nextCrossing.x < nextCrossing.z) ? 0 :(nextCrossing.y < nextCrossing.z) ? 1 : 2;
 
+
+
 						if(stepAxis == 0)
 						{
+							if(ray.direction.x >= 0)
+							{
 
 							if(maxVal < nextCrossing.x) 
 							{
@@ -164,40 +168,83 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 
 							nextCrossing.x += deltaT.x;
 
+							}
+							else
+							{
+								if(maxVal < nextCrossing.x) 
+								{
+									break;
+								}
+								currentCell.x += nextStep.x;
+
+								if( out.x > currentCell.x)
+								//if( out.x < currentCell.x)
+								{
+									break;
+								}
+
+								nextCrossing.x += deltaT.x;
+
+							}
 						}
+
+
 						if(stepAxis == 1)
 						{
-
-							if(maxVal < nextCrossing.y)
+							if(ray.direction.y >= 0)
 							{
-								break;
+
+								if(maxVal < nextCrossing.y)
+								{
+									break;
+								}
+
+								currentCell.y += nextStep.y;
+
+								if(out.y < currentCell.y)
+								//if(out.y < currentCell.y)
+								{
+									break;
+								}
+								nextCrossing.y += deltaT.y;
 							}
-
-							currentCell.y += nextStep.y;
-
-							if(out.y < currentCell.y)
-							//if(out.y < currentCell.y)
+							else
 							{
-								break;
-							}
-							nextCrossing.y += deltaT.y;
 
+								if(maxVal < nextCrossing.y)
+								{
+									break;
+								}
+
+								currentCell.y += nextStep.y;
+
+								if(out.y > currentCell.y)
+								//if(out.y < currentCell.y)
+								{
+									break;
+								}
+								nextCrossing.y += deltaT.y;
+							}
 						}
+
+
 						if(stepAxis == 2)
 						{
-							if(maxVal < nextCrossing.z)
-							{
-								break;
-							}
-
-							currentCell.z += nextStep.z;
 							
-							if(out.z > currentCell.z)
-							//if(out.z < currentCell.z)
-							{
-								break;
-							}
-							nextCrossing.z += deltaT.z;
+								if(maxVal < nextCrossing.z)
+								{
+									break;
+								}
+
+								currentCell.z += nextStep.z;
+								
+								if(out.z > currentCell.z)
+								//if(out.z < currentCell.z)
+								{
+									break;
+								}
+								nextCrossing.z += deltaT.z;
+							
 						}
 
 						cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;

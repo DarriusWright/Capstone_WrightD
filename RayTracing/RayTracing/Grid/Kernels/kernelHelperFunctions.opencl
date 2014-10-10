@@ -318,8 +318,9 @@ Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 d
 	ray.direction = normalize(pixelToRay.x * camera.u + pixelToRay.y * camera.v - camera.distance * camera.w);
 
 	return ray;
-	
 	*/
+	
+	
 	Ray ray;
 	float2 pixelToRay = (float2)((pixelLocation.x - (0.5f * width)) + (dim.x + 0.5)/sampleNumber, (pixelLocation.y - (0.5 * height)) + (dim.y + 0.5)/sampleNumber);
 
