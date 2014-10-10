@@ -13,7 +13,6 @@ RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), g
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
 	setSamples(1);
-	QElapsedTimer t;
 
 	initializeProgram();
 	construct();
@@ -59,7 +58,7 @@ void RenderWindow::addMesh(std::string fileName)
 	if (mesh->HasFaces())
 	{
 		int faceCount = mesh->mNumFaces;
-		for (UINT i = 0; i < faceCount; i++)
+		for (int i = 0; i < faceCount; i++)
 		{
 			aiFace * face = &mesh->mFaces[i];
 			for (UINT j = 0; j < face->mNumIndices; j++)
@@ -104,6 +103,11 @@ void RenderWindow::addMesh(std::string fileName)
 		tri.v1 = position + glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i + 1]]));
 		tri.v2 = position + glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mVertices[modelIndices[i + 2]]));
 
+		if(mesh->HasNormals())
+		{
+			tri.normal = glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mNormals[modelIndices[i]]));
+		}
+		
 		o.triangleIndex = triangles.size();
 		o.index = objects.size();
 		o.material = material;
@@ -168,7 +172,7 @@ void RenderWindow::construct()
 	setMinimumSize(640,480);
 
 	layout = new QHBoxLayout();
-	Light light = {{{0.925,0.835,0.102}, {0.73,0.724,0.934},{0.2,0.52,0.96}}, {2.0f,2.0f,200.0f}};
+	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {2.0f,2.0f,200.0f}};
 	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/suzy.obj");
 
 	//Random random = Random::getInstance();
@@ -395,7 +399,7 @@ void RenderWindow::releaseUpdate()
 
 	if(objectPaths.size() > 0)
 	{
-		for (int i = 0; i < objectPaths.size(); i++)
+		for (uint i = 0; i < objectPaths.size(); i++)
 		{
 			addMesh(objectPaths[i]);
 		}

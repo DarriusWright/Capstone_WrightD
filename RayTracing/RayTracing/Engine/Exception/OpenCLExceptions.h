@@ -154,9 +154,11 @@ static inline void errCheck(int errCode, std::string additionalInfo)
 		}
 
 		std::cout<< additionalInfo << " : " << errResult << ", " << errCode << std::endl;
+
 #ifdef _DEBUG || DEBUG
 		system("pause");
 #endif
+
 		exit(1);
 	}
 }

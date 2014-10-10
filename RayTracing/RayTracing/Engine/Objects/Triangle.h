@@ -11,5 +11,8 @@ public:
 	float d1;
 	glm::vec3 v2;
 	float d2;
+	
+	glm::vec3 normal;
+	float d3;
 };
 

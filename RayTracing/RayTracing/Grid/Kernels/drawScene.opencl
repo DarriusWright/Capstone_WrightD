@@ -32,15 +32,15 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 						float3 p = ray.origin.xyz + (hitCheck.minValue * ray.direction.xyz);
 						minVal = hitCheck.minValue;
 						maxVal = hitCheck.maxValue;
-						currentCell = positionToVoxel(p, voxelInvWidth, numberOfVoxels-1,box);
-					    //currentCell = (int3)(convert_int3(clamp((p - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), cellDimensions - 1.0f)));
+						//currentCell = positionToVoxel(p, voxelInvWidth, numberOfVoxels-1,box);
+					    currentCell = (int3)(convert_int3(clamp((p - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), cellDimensions - 1.0f)));
 
 
 					}
 					else
 					{
-						currentCell = positionToVoxel(ray.origin, voxelInvWidth, numberOfVoxels-1,box);
-						//currentCell = (int3)(convert_int3(clamp((ray.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
+						//currentCell = positionToVoxel(ray.origin, voxelInvWidth, numberOfVoxels-1,box);
+						currentCell = (int3)(convert_int3(clamp((ray.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
 						maxVal = hitCheck.maxValue;
 
 					}					
@@ -114,35 +114,37 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 					{
 						
 						int cellObjectNumber = (cellIndex > 0) ? cellIndices[cellIndex]- cellIndices[cellIndex-1]  : cellIndices[0];
-
-						for(int i = 0; i <  cellObjectNumber; i++ )
+						if(cellIndex < numberOfVoxels.x * numberOfVoxels.y * numberOfVoxels.z)
 						{
-							int objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
-								if(objects[objectIndex].position.w == 0.0)
-								{
-									TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
-									if(triInfo.hasIntersection)
+							for(int i = 0; i <  cellObjectNumber; i++ )
+							{
+								int objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
+									if(objects[objectIndex].position.w == 0.0)
 									{
-										outColor = (uint4)adsLightT(objects[objectIndex], light[0], triInfo);
-										lastDistance = triInfo.distanceFromIntersection;									
-										run = false;
-										//break;
+										TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
+										triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
+										if(triInfo.hasIntersection)
+										{
+											outColor = (uint4)adsLightT(objects[objectIndex], light[0], triInfo);
+											lastDistance = triInfo.distanceFromIntersection;									
+											run = false;
+											//break;
+										}
 									}
-								}
-								else
-								{
-									SphereInfo sphereInfo = sphereIntersection(ray,objects[objectIndex].position.xyz,objects[objectIndex].position.w);
-									if(sphereInfo.hasIntersection && sphereInfo.distanceToIntersection < lastDistance)
+									else
 									{
-										outColor = (uint4)adsLightS(objects[objectIndex], light[0], sphereInfo);
-										lastDistance = sphereInfo.distanceToIntersection;									
-										run = false;
-										//break;
+										SphereInfo sphereInfo = sphereIntersection(ray,objects[objectIndex].position.xyz,objects[objectIndex].position.w);
+										if(sphereInfo.hasIntersection && sphereInfo.distanceToIntersection < lastDistance)
+										{
+											outColor = (uint4)adsLightS(objects[objectIndex], light[0], sphereInfo);
+											lastDistance = sphereInfo.distanceToIntersection;									
+											run = false;
+											//break;
+										}
 									}
-								}
-							
+								
+							}
 						}
-
 						int stepAxis =  (nextCrossing.x  < nextCrossing.y && nextCrossing.x < nextCrossing.z) ? 0 :(nextCrossing.y < nextCrossing.z) ? 1 : 2;
 
 						if(stepAxis == 0)
@@ -154,7 +156,8 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 							}
 							currentCell.x += nextStep.x;
 
-							if( out.x <= currentCell.x)
+							if( out.x < currentCell.x)
+							//if( out.x < currentCell.x)
 							{
 								break;
 							}
@@ -172,7 +175,8 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 
 							currentCell.y += nextStep.y;
 
-							if(out.y <= currentCell.y)
+							if(out.y < currentCell.y)
+							//if(out.y < currentCell.y)
 							{
 								break;
 							}
@@ -188,7 +192,8 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 
 							currentCell.z += nextStep.z;
 							
-							if(out.z <= currentCell.z)
+							if(out.z > currentCell.z)
+							//if(out.z < currentCell.z)
 							{
 								break;
 							}
