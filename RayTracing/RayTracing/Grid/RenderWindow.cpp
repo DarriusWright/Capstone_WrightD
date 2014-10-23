@@ -36,8 +36,7 @@ RenderWindow::~RenderWindow(void)
 	clReleaseCommandQueue(queue);
 	clReleaseProgram(program);
 	clReleaseContext(context);
-
-	//	releaseUpdate();
+	releaseUpdate();
 
 }
 void RenderWindow::setSamples(int samples)
@@ -113,12 +112,25 @@ void RenderWindow::addMesh(std::string fileName)
 		o.material = material;
 		objects.push_back(o);
 		triangles.push_back(tri);
+		//box.max = glm::max(box.max, tri.v0);
+		//box.max = glm::max(box.max, tri.v1);
+		//box.max = glm::max(box.max, tri.v2);
 
+
+		//box.min = glm::min(box.min, tri.v0);
+		//box.min = glm::min(box.min, tri.v1);
+		//box.min = glm::min(box.min, tri.v2);
 	}
 
 
 	trianglesMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Triangle)* triangles.size(), &triangles[0],&err);
 	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
+
+
+
+
+	//box.min -= 0.1f;
+	//box.max += 0.1f;
 
 }
 void RenderWindow::resizeEvent(QResizeEvent * e)
@@ -173,7 +185,7 @@ void RenderWindow::construct()
 
 	layout = new QHBoxLayout();
 	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {2.0f,2.0f,200.0f}};
-	addMesh("D:/Capstone/RayTracing/RayTracing/Grid/suzy.obj");
+	addMesh("suzy2.obj");
 
 	//Random random = Random::getInstance();
 	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
@@ -249,7 +261,7 @@ void RenderWindow::updateDrawScene()
 }
 void RenderWindow::updateScene()
 {
-	releaseUpdate();
+	//releaseUpdate();
 	timer.start();	
 	handleKeyInput();
 	camera.update();
@@ -257,8 +269,8 @@ void RenderWindow::updateScene()
 	// 0
 	profileTimer.start();
 
-	updateBBox();
-	updateCells();
+	//updateBBox();
+	//updateCells();
 	updateDrawScene();
 
 	imageLabel.setPixmap(QPixmap::fromImage(readImage));
@@ -590,9 +602,7 @@ void RenderWindow::initializeSceneBBox()
 		NULL, &sceneBBoxGlobalWorkSize, 
 		NULL, 0, NULL, NULL);
 
-	clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
-
-
+	err |= clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
 }
 void RenderWindow::initializeCells()
 {
@@ -619,8 +629,8 @@ void RenderWindow::initializeCells()
 		NULL, &initCellWorkSize, 
 		NULL, 0, NULL, NULL);
 
-	clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * totalVoxels, &cells[0],0,0,0);
-	clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
+	err |= clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * totalVoxels, &cells[0],0,0,0);
+	err |= clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
 
 
 	cellIndices.resize(totalVoxels);
@@ -687,7 +697,7 @@ void RenderWindow::initializeDrawScene()
 	globalWorkSize[0] = windowWidth;
 	globalWorkSize[1] =  windowHeight;
 
-
+	err = 0;
 	err = clEnqueueNDRangeKernel(queue, drawSceneKernel, 2 ,
 		NULL, globalWorkSize, 
 		NULL, 0, NULL, NULL);
@@ -889,8 +899,10 @@ void RenderWindow::calculateVoxelSize()
 		voxelWidth[i] = delta[i]/ numberOfVoxels[i];
 		voxelInvWidth[i] = (voxelWidth[i] == 0.0f) ? 0.0f : 1.0f / voxelWidth[i];
 	}
-
+	//64 57 48 
 	totalVoxels = numberOfVoxels[0] * numberOfVoxels[1]* numberOfVoxels[2];
+
+	cout << numberOfVoxels[0] << " , " << numberOfVoxels[1] << ", " <<numberOfVoxels[2] << endl;
 
 
 	glm::vec3 minPosition = objects[0].box.min + glm::vec3(objects[0].position);

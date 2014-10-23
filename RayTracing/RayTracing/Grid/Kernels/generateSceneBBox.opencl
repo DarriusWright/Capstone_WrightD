@@ -2,11 +2,22 @@
 __kernel void generateSceneBBox(__global BBox * box, __global Object * objects,
 	 int length,
      __global float3 * minArray,
-
      __global float3 * maxArray
 
 
        )
+/*
+	   {
+ 		int global_index = get_global_id(0);
+            if(global_index < length)
+            {
+	           box[0].max = max(box[0].max, objects[global_index].box.max + objects[global_index].position.xyz);
+			 box[0].min = min(box[0].min, objects[global_index].box.min + objects[global_index].position.xyz );
+            }
+	   }
+
+*/	   
+
 {
 
 
@@ -48,8 +59,8 @@ __kernel void generateSceneBBox(__global BBox * box, __global Object * objects,
     }
     if (local_index == 0) 
     {
-        box[0].max = maxArray[0] + 0.001;
-        box[0].min = minArray[0] - 0.001;
+        box[0].max = maxArray[0] + 0.6f;
+        box[0].min = minArray[0] - 0.6f;
 
     }
 }
