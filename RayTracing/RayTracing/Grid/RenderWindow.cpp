@@ -44,7 +44,7 @@ void RenderWindow::setSamples(int samples)
 	this->samples = samples;
 	this->sampleSquared = sqrt(samples);
 }
-void RenderWindow::addMesh(std::string fileName)
+void RenderWindow::addMesh(std::string fileName, glm::vec3 position)
 {
 	Assimp::Importer importer;
 	const aiScene * scene = importer.ReadFile(fileName, flags);
@@ -89,7 +89,7 @@ void RenderWindow::addMesh(std::string fileName)
 	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
 	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}};
 
-	glm::vec3 position(0,0,10);
+	//glm::vec3 position(0,0,10);
 	for (UINT i = 0; i < modelIndices.size(); i+=3)
 	{
 		Triangle tri;
@@ -112,14 +112,14 @@ void RenderWindow::addMesh(std::string fileName)
 		o.material = material;
 		objects.push_back(o);
 		triangles.push_back(tri);
-		//box.max = glm::max(box.max, tri.v0);
-		//box.max = glm::max(box.max, tri.v1);
-		//box.max = glm::max(box.max, tri.v2);
+		box.max = glm::max(box.max, tri.v0);
+		box.max = glm::max(box.max, tri.v1);
+		box.max = glm::max(box.max, tri.v2);
 
 
-		//box.min = glm::min(box.min, tri.v0);
-		//box.min = glm::min(box.min, tri.v1);
-		//box.min = glm::min(box.min, tri.v2);
+		box.min = glm::min(box.min, tri.v0);
+		box.min = glm::min(box.min, tri.v1);
+		box.min = glm::min(box.min, tri.v2);
 	}
 
 
@@ -129,8 +129,8 @@ void RenderWindow::addMesh(std::string fileName)
 
 
 
-	//box.min -= 0.1f;
-	//box.max += 0.1f;
+	box.min -= 0.001f;
+	box.max += 0.001f;
 
 }
 void RenderWindow::resizeEvent(QResizeEvent * e)
@@ -184,8 +184,11 @@ void RenderWindow::construct()
 	setMinimumSize(640,480);
 
 	layout = new QHBoxLayout();
-	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {2.0f,2.0f,200.0f}};
-	addMesh("suzy2.obj");
+	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {3.0f,3.0f,20.0f}};
+	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f));
+	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f));
+	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
+	addMesh("cylinder.obj", glm::vec3(0.0f,0.0f,12.0f));
 
 	//Random random = Random::getInstance();
 	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
@@ -251,12 +254,24 @@ void RenderWindow::construct()
 }
 void RenderWindow::updateDrawScene()
 {
+	//clEnqueueUnmapMemObject(queue,writeCLImage,readBuffer,0,0,0);
+
 	setUpDrawSceneArgs();
 	err |= clEnqueueNDRangeKernel(queue, drawSceneKernel, 2,
 		NULL, &globalWorkSize[0], 
 		NULL, 0, NULL, NULL);
 
 	err |= clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
+	//cl_uint rowPitch = 0;
+	//readBuffer = (uchar*)clEnqueueMapImage(queue,writeCLImage,CL_TRUE,CL_MAP_READ,origin,region,&rowPitch,0,0,0,0, &err);
+	if(err != CL_SUCCESS)
+	{
+		cout<< "Error reading buffer" << endl;
+		exit(1);
+	}
+
+
+	//clEnqueueUnmapMemObject(queue,
 	//qDebug() << err;
 }
 void RenderWindow::updateScene()
@@ -597,12 +612,12 @@ void RenderWindow::initializeSceneBBox()
 	}
 
 
-	sceneBBoxGlobalWorkSize = nextPowerOfTwo(objects.size());
-	err = clEnqueueNDRangeKernel(queue, sceneBBoxKernel, 1 ,
-		NULL, &sceneBBoxGlobalWorkSize, 
-		NULL, 0, NULL, NULL);
+	//sceneBBoxGlobalWorkSize = nextPowerOfTwo(objects.size());
+	//err = clEnqueueNDRangeKernel(queue, sceneBBoxKernel, 1 ,
+	//	NULL, &sceneBBoxGlobalWorkSize, 
+	//	NULL, 0, NULL, NULL);
 
-	err |= clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
+	//err |= clEnqueueReadBuffer(queue,boundingBoxMem,CL_TRUE,0, sizeof(BBox), &box,0,0,0);
 }
 void RenderWindow::initializeCells()
 {
@@ -716,12 +731,15 @@ void RenderWindow::initializeDrawScene()
 	region[1] = windowHeight;
 	region[2] = 1;
 	err = clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
-
+	//cl_uint rowPitch = 0;
+	//readBuffer = (uchar*)clEnqueueMapImage(queue,writeCLImage,CL_TRUE,CL_MAP_READ,origin,region,&rowPitch,0,0,0,0, &err);
+	
 	if(err != CL_SUCCESS)
 	{
 		cout << "Error creating reading from buffer" << endl;
 		exit(-1);
 	}
+
 }
 void RenderWindow::initializeMemory()
 {

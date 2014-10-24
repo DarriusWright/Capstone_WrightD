@@ -77,7 +77,7 @@ private:
 
 	int samples;
 	int sampleSquared;
-	void addMesh(std::string filePath);
+	void addMesh(std::string filePath, glm::vec3 position = glm::vec3(0.0f,0.0f,10.0f));
 	
 
 //	QOpenGLFramebufferObject * frameBuffer;
