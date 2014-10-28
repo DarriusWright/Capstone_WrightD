@@ -80,7 +80,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="MainWindow.cpp" />
-    <ClCompile Include="MainWindow_moc.cpp" />
     <ClCompile Include="OpenGLWindow.cpp" />
     <ClCompile Include="OpenGLWindow_moc.cpp" />
     <ClCompile Include="RenderWindow.cpp" />

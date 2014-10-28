@@ -8,11 +8,12 @@ typedef struct
 
 typedef struct 
 {
-	float3 ambient;
-	float3 diffuse;
-	float3 specular;
-
-
+	float4 ambient;
+	float4 diffuse;
+	float4 specular;
+	float reflection;
+	float refraction;
+	float d[2];
 }Material;
 
 typedef struct
@@ -375,7 +376,7 @@ uint4 adsLightS(Object object,Light light,SphereInfo sphereInfo)
 	float3 lightVector = normalize( light.position.xyz - object.position.xyz);
 	float lightDotNormal = max(dot(lightVector.xyz,sphereInfo.normal.xyz), 0.0);
 	float3 diffuse = object.material.diffuse.xyz * light.material.diffuse.xyz * lightDotNormal;
-	float3 finalColor =   ambient + diffuse;// + specular;
+	float3 finalColor =   diffuse;//ambient + diffuse;// + specular;
 	return (uint4)((convert_uint3(finalColor * 255.0f)),255);
 }
 
@@ -386,7 +387,9 @@ uint4 adsLightT(Object object,Light light,TriangleInfo triangleInfo)
 	float3 lightVector = normalize( light.position.xyz - object.position.xyz);
 	float lightDotNormal = max(dot(lightVector.xyz,triangleInfo.normal.xyz), 0.0);
 	float3 diffuse = object.material.diffuse.xyz * light.material.diffuse.xyz * lightDotNormal;
-	float3 finalColor =   ambient + diffuse;// + specular;
+	//float3 finalColor =   ambient + diffuse;// + specular;
+	float3 finalColor =   diffuse;//ambient + diffuse;// + specular;
+	
 	return (uint4)((convert_uint3(finalColor * 255.0f)),255);
 }
 

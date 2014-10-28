@@ -8,7 +8,8 @@ const cl_float RenderWindow::MAX = -10000000.0f;
 const cl_uint RenderWindow::NUMBER_OF_SPHERES = 1;
 
 
-RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance())
+RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance()), shadowsEnabled(false), 
+	numberOfReflections(1), reflectionsEnabled(true)
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
@@ -30,6 +31,8 @@ RenderWindow::~RenderWindow(void)
 	clReleaseMemObject(writeCLImage);
 	clReleaseSampler(sampler);
 	clReleaseKernel(drawSceneKernel);
+	clReleaseKernel(drawShadowRaysKernel);
+	clReleaseKernel(drawReflectionRaysKernel);
 	clReleaseKernel(sceneBBoxKernel);
 	clReleaseKernel(initializeCellsKernel);
 	clReleaseKernel(findObjectCellsKernel);
@@ -39,6 +42,36 @@ RenderWindow::~RenderWindow(void)
 	releaseUpdate();
 
 }
+
+void RenderWindow::drawSecondaryRays()
+{
+	if(reflectionsEnabled)
+	{
+		setUpReflectionArgs();
+
+		err = clEnqueueNDRangeKernel(queue, drawReflectionRaysKernel, 2 ,
+			NULL, globalWorkSize, 
+			NULL, 0, NULL, NULL);
+	}
+	if(refractionsEnabled)
+	{
+
+	}
+
+	if(shadowsEnabled)
+	{
+
+		setUpShadowArgs();
+
+		err = clEnqueueNDRangeKernel(queue, drawShadowRaysKernel, 2 ,
+			NULL, globalWorkSize, 
+			NULL, 0, NULL, NULL);
+	}
+
+
+
+}
+
 void RenderWindow::setSamples(int samples)
 {
 	this->samples = samples;
@@ -81,8 +114,8 @@ void RenderWindow::addMesh(std::string fileName, glm::vec3 position)
 
 
 	//int triangleInitSize = triangles.size();
-	triangles.reserve(modelIndices.size() / 3);
-	objects.reserve(modelIndices.size() / 3);
+	//	triangles.reserve(modelIndices.size() / 3);
+	//	objects.reserve(modelIndices.size() / 3);
 	Random random = Random::getInstance();
 
 	Material material = {{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
@@ -106,7 +139,7 @@ void RenderWindow::addMesh(std::string fileName, glm::vec3 position)
 		{
 			tri.normal = glm::vec3(*reinterpret_cast<glm::vec3*>(&mesh->mNormals[modelIndices[i]]));
 		}
-		
+
 		o.triangleIndex = triangles.size();
 		o.index = objects.size();
 		o.material = material;
@@ -184,11 +217,14 @@ void RenderWindow::construct()
 	setMinimumSize(640,480);
 
 	layout = new QHBoxLayout();
-	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {3.0f,3.0f,20.0f}};
-	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f));
+	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {0.0f,0.0f,20.0f}};
 	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f));
 	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
-	addMesh("cylinder.obj", glm::vec3(0.0f,0.0f,12.0f));
+	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f));
+	
+	addMesh("shadowPlane.obj", glm::vec3(4.0f,0.0f,12.0f));
+	addMesh("cylinder.obj", glm::vec3(0.0f,0.0f,9.0f));
+	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f));
 
 	//Random random = Random::getInstance();
 	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
@@ -260,6 +296,8 @@ void RenderWindow::updateDrawScene()
 	err |= clEnqueueNDRangeKernel(queue, drawSceneKernel, 2,
 		NULL, &globalWorkSize[0], 
 		NULL, 0, NULL, NULL);
+
+	drawSecondaryRays();
 
 	err |= clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
 	//cl_uint rowPitch = 0;
@@ -581,6 +619,8 @@ void RenderWindow::initializeProgram()
 	std::string files []  = { "Kernels/kernelHelperFunctions.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl", "Kernels/drawScene.opencl"};
 	program = buildProgram(files, 5);
 	drawSceneKernel = clCreateKernel(program, "drawScene", &err);
+	drawShadowRaysKernel = clCreateKernel(program, "drawShadowRays", &err);
+	drawReflectionRaysKernel = clCreateKernel(program, "drawReflectionRays", &err);
 	sceneBBoxKernel = clCreateKernel(program, "generateSceneBBox", &err);
 	initializeCellsKernel = clCreateKernel(program, "initializeCells", &err);
 	findObjectCellsKernel = clCreateKernel(program,"findObjectCells", &err);
@@ -724,6 +764,8 @@ void RenderWindow::initializeDrawScene()
 		exit(1);   
 	}
 
+	drawSecondaryRays();
+
 	origin[0] = 0;
 	origin[1] = 0;
 	origin[2] = 0;
@@ -733,7 +775,7 @@ void RenderWindow::initializeDrawScene()
 	err = clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
 	//cl_uint rowPitch = 0;
 	//readBuffer = (uchar*)clEnqueueMapImage(queue,writeCLImage,CL_TRUE,CL_MAP_READ,origin,region,&rowPitch,0,0,0,0, &err);
-	
+
 	if(err != CL_SUCCESS)
 	{
 		cout << "Error creating reading from buffer" << endl;
@@ -746,7 +788,9 @@ void RenderWindow::initializeMemory()
 	cl_image_format clImageFormat;
 	clImageFormat.image_channel_order = CL_RGBA;
 	clImageFormat.image_channel_data_type = CL_UNSIGNED_INT8;
-
+	cl_image_format depthBufferFormat;
+	depthBufferFormat.image_channel_order = CL_R;
+	depthBufferFormat.image_channel_data_type = CL_FLOAT;
 
 	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
 	if(err != CL_SUCCESS)
@@ -789,6 +833,16 @@ void RenderWindow::initializeMemory()
 		exit(-1);
 	}
 
+
+	depthBuffer = clCreateImage2D(context, CL_MEM_READ_WRITE, &depthBufferFormat, windowWidth,windowHeight, 0 ,NULL, &err);
+
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating depthBuffer CL Image object : " << err << endl;
+		exit(-1);
+	}
+
+
 	sampler  = clCreateSampler(context, CL_FALSE, CL_ADDRESS_CLAMP_TO_EDGE, CL_FILTER_NEAREST, & err);
 	if(err != CL_SUCCESS)
 	{
@@ -806,6 +860,22 @@ void RenderWindow::initializeMemory()
 		exit(-1);
 	}
 }
+
+
+void RenderWindow::setShadowsEnabled(bool enabled )
+{
+	shadowsEnabled = enabled;
+}
+
+void RenderWindow::setReflectionsEnabled(bool enabled)
+{
+	reflectionsEnabled = enabled;
+}
+void RenderWindow::setRefractionsEnabled(bool enabled)
+{
+	refractionsEnabled = enabled;
+}
+
 void RenderWindow::initializeCL()
 {
 
@@ -845,29 +915,87 @@ void RenderWindow::setUpDrawSceneArgs()
 {
 	err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
 	err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
-	err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_sampler), &sampler);
-	err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_int), &windowWidth);
-	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowHeight);
-	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_mem), &objectMem);
-	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem),(triangles.size())? &trianglesMem : nullptr);
-	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem), &lightMem);
-	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_int), &numberOfObjects);
-	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfLights);
-	err |= clSetKernelArg(drawSceneKernel,10, sizeof(BBox), &box);
-	err |= clSetKernelArg(drawSceneKernel, 11, sizeof(cl_mem), &cellsMem);
-	err |= clSetKernelArg(drawSceneKernel,12 , sizeof(cl_float3), &numberOfVoxels[0]);
-	err |= clSetKernelArg(drawSceneKernel, 13, sizeof(cl_mem), &cellIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 14, sizeof(cl_mem), &objectIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(Camera), &camera);
-	err |= clSetKernelArg(drawSceneKernel,16 , sizeof(cl_int), &samples);
-	err |= clSetKernelArg(drawSceneKernel,17 , sizeof(cl_int), &sampleSquared);
-	err |= clSetKernelArg(drawSceneKernel,18 , sizeof(cl_float3) , &delta[0]);
-	err |= clSetKernelArg(drawSceneKernel,19 , sizeof(cl_float3) , &deltaInv[0]);
-	err |= clSetKernelArg(drawSceneKernel,20 , sizeof(cl_float3) , &voxelInvWidth[0]);
-	err |= clSetKernelArg(drawSceneKernel,21 , sizeof(cl_float3) , &numberOfVoxels[0]);
-	err |= clSetKernelArg(drawSceneKernel,22 , sizeof(cl_float3) , &voxelWidth[0]);
+	err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_mem), &depthBuffer);
+	err |= clSetKernelArg(drawSceneKernel,3 , sizeof(cl_sampler), &sampler);
+	err |= clSetKernelArg(drawSceneKernel,4 , sizeof(cl_int), &windowWidth);
+	err |= clSetKernelArg(drawSceneKernel,5 , sizeof(cl_int), &windowHeight);
+	err |= clSetKernelArg(drawSceneKernel,6 , sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(drawSceneKernel,7 , sizeof(cl_mem),(triangles.size())? &trianglesMem : nullptr);
+	err |= clSetKernelArg(drawSceneKernel,8 , sizeof(cl_mem), &lightMem);
+	err |= clSetKernelArg(drawSceneKernel,9 , sizeof(cl_int), &numberOfObjects);
+	err |= clSetKernelArg(drawSceneKernel,10 , sizeof(cl_int), &numberOfLights);
+	err |= clSetKernelArg(drawSceneKernel,11, sizeof(BBox), &box);
+	err |= clSetKernelArg(drawSceneKernel, 12, sizeof(cl_mem), &cellsMem);
+	err |= clSetKernelArg(drawSceneKernel,13 , sizeof(cl_float3), &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawSceneKernel, 14, sizeof(cl_mem), &cellIndicesMem);
+	err |= clSetKernelArg(drawSceneKernel, 15, sizeof(cl_mem), &objectIndicesMem);
+	err |= clSetKernelArg(drawSceneKernel, 16, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawSceneKernel,17 , sizeof(cl_int), &samples);
+	err |= clSetKernelArg(drawSceneKernel,18 , sizeof(cl_int), &sampleSquared);
+	err |= clSetKernelArg(drawSceneKernel,19 , sizeof(cl_float3) , &delta[0]);
+	err |= clSetKernelArg(drawSceneKernel,20 , sizeof(cl_float3) , &deltaInv[0]);
+	err |= clSetKernelArg(drawSceneKernel,21 , sizeof(cl_float3) , &voxelInvWidth[0]);
+	err |= clSetKernelArg(drawSceneKernel,22 , sizeof(cl_float3) , &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawSceneKernel,23 , sizeof(cl_float3) , &voxelWidth[0]);
 
 }
+
+void RenderWindow::setUpReflectionArgs()
+{
+	err |= clSetKernelArg(drawReflectionRaysKernel,0 , sizeof(cl_mem), &writeCLImage);
+	err |= clSetKernelArg(drawReflectionRaysKernel,1 , sizeof(cl_mem), &depthBuffer);
+	err |= clSetKernelArg(drawReflectionRaysKernel,2 , sizeof(cl_sampler), &sampler);
+	err |= clSetKernelArg(drawReflectionRaysKernel,3 , sizeof(cl_int), &windowWidth);
+	err |= clSetKernelArg(drawReflectionRaysKernel,4 , sizeof(cl_int), &windowHeight);
+	err |= clSetKernelArg(drawReflectionRaysKernel,5 , sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(drawReflectionRaysKernel,6 , sizeof(cl_mem),(triangles.size())? &trianglesMem : nullptr);
+	err |= clSetKernelArg(drawReflectionRaysKernel,7 , sizeof(cl_mem), &lightMem);
+	err |= clSetKernelArg(drawReflectionRaysKernel,8 , sizeof(cl_int), &numberOfObjects);
+	err |= clSetKernelArg(drawReflectionRaysKernel,9 , sizeof(cl_int), &numberOfLights);
+	err |= clSetKernelArg(drawReflectionRaysKernel,10, sizeof(BBox), &box);
+	err |= clSetKernelArg(drawReflectionRaysKernel, 11, sizeof(cl_mem), &cellsMem);
+	err |= clSetKernelArg(drawReflectionRaysKernel,12 , sizeof(cl_float3), &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawReflectionRaysKernel, 13, sizeof(cl_mem), &cellIndicesMem);
+	err |= clSetKernelArg(drawReflectionRaysKernel, 14, sizeof(cl_mem), &objectIndicesMem);
+	err |= clSetKernelArg(drawReflectionRaysKernel, 15, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawReflectionRaysKernel,16, sizeof(cl_int), &samples);
+	err |= clSetKernelArg(drawReflectionRaysKernel,17 , sizeof(cl_int), &sampleSquared);
+	err |= clSetKernelArg(drawReflectionRaysKernel,18 , sizeof(cl_float3) , &delta[0]);
+	err |= clSetKernelArg(drawReflectionRaysKernel,19 , sizeof(cl_float3) , &deltaInv[0]);
+	err |= clSetKernelArg(drawReflectionRaysKernel,20 , sizeof(cl_float3) , &voxelInvWidth[0]);
+	err |= clSetKernelArg(drawReflectionRaysKernel,21 , sizeof(cl_float3) , &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawReflectionRaysKernel,22 , sizeof(cl_float3) , &voxelWidth[0]);
+	err |= clSetKernelArg(drawReflectionRaysKernel,23 , sizeof(cl_int) , &numberOfReflections);
+}
+
+void RenderWindow::setUpShadowArgs()
+{
+	err |= clSetKernelArg(drawShadowRaysKernel,0 , sizeof(cl_mem), &writeCLImage);
+	err |= clSetKernelArg(drawShadowRaysKernel,1 , sizeof(cl_mem), &depthBuffer);
+	err |= clSetKernelArg(drawShadowRaysKernel,2 , sizeof(cl_sampler), &sampler);
+	err |= clSetKernelArg(drawShadowRaysKernel,3 , sizeof(cl_int), &windowWidth);
+	err |= clSetKernelArg(drawShadowRaysKernel,4 , sizeof(cl_int), &windowHeight);
+	err |= clSetKernelArg(drawShadowRaysKernel,5 , sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(drawShadowRaysKernel,6 , sizeof(cl_mem),(triangles.size())? &trianglesMem : nullptr);
+	err |= clSetKernelArg(drawShadowRaysKernel,7 , sizeof(cl_mem), &lightMem);
+	err |= clSetKernelArg(drawShadowRaysKernel,8 , sizeof(cl_int), &numberOfObjects);
+	err |= clSetKernelArg(drawShadowRaysKernel,9 , sizeof(cl_int), &numberOfLights);
+	err |= clSetKernelArg(drawShadowRaysKernel,10, sizeof(BBox), &box);
+	err |= clSetKernelArg(drawShadowRaysKernel, 11, sizeof(cl_mem), &cellsMem);
+	err |= clSetKernelArg(drawShadowRaysKernel,12 , sizeof(cl_float3), &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawShadowRaysKernel, 13, sizeof(cl_mem), &cellIndicesMem);
+	err |= clSetKernelArg(drawShadowRaysKernel, 14, sizeof(cl_mem), &objectIndicesMem);
+	err |= clSetKernelArg(drawShadowRaysKernel, 15, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawShadowRaysKernel,16, sizeof(cl_int), &samples);
+	err |= clSetKernelArg(drawShadowRaysKernel,17 , sizeof(cl_int), &sampleSquared);
+	err |= clSetKernelArg(drawShadowRaysKernel,18 , sizeof(cl_float3) , &delta[0]);
+	err |= clSetKernelArg(drawShadowRaysKernel,19 , sizeof(cl_float3) , &deltaInv[0]);
+	err |= clSetKernelArg(drawShadowRaysKernel,20 , sizeof(cl_float3) , &voxelInvWidth[0]);
+	err |= clSetKernelArg(drawShadowRaysKernel,21 , sizeof(cl_float3) , &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawShadowRaysKernel,22 , sizeof(cl_float3) , &voxelWidth[0]);
+
+}
+
 void RenderWindow::setUpCellArgs()
 {
 	err |= clSetKernelArg(initializeCellsKernel,0 , sizeof(cl_mem), &objectMem);

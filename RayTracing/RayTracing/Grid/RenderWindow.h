@@ -36,7 +36,7 @@ using std::endl;
 class RenderWindow :public QWidget// public OpenGLWindow
 {
 	Q_OBJECT;
-
+	
 public:
 	RenderWindow(void);
 	~RenderWindow(void);
@@ -49,6 +49,12 @@ public:
 	float getInterval();
 	Random random;
 	void setSamples(int samples = 4);
+
+	void setShadowsEnabled(bool enabled);
+	void setReflectionsEnabled(bool enabled);
+	void setRefractionsEnabled(bool enabled);
+
+
 //	void initialize()override;
 //	void render()override;
 
@@ -97,6 +103,7 @@ private:
 	static const cl_uint flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType;
 		
 	cl_int  numCells, nextPowerOfCells, numberOfCellObjects;
+	cl_int numberOfReflections;
 	const cl_float multi;
 	QImage readImage;
 
@@ -111,7 +118,7 @@ private:
 	vector<std::string> objectPaths;
 	vector<cl_uint> cells;
 
-	cl_image_format clImageFormat;
+
 
 	void releaseUpdate();
 
@@ -125,6 +132,8 @@ private:
 	void initializeDrawScene();
 
 	void setUpDrawSceneArgs();
+	void setUpShadowArgs();
+	void setUpReflectionArgs();
 	void setUpSceneBoxArgs();
 	void setUpCellArgs();
 	void setUpCellObjectArgs();
@@ -165,7 +174,16 @@ private:
 	cl_kernel sceneBBoxKernel;
 	cl_kernel initializeCellsKernel;
 	cl_kernel drawSceneKernel;
+	cl_kernel drawShadowRaysKernel;
+	cl_kernel drawReflectionRaysKernel;
 	cl_kernel findObjectCellsKernel;
+
+
+	void drawSecondaryRays();
+
+	bool shadowsEnabled;
+	bool reflectionsEnabled;
+	bool refractionsEnabled;
 
 	//update release mem
 	cl_mem objectIndicesMem;
@@ -177,6 +195,7 @@ private:
 	cl_mem maxMem;
 	cl_mem trianglesMem;
 	cl_mem writeCLImage;
+	cl_mem depthBuffer;
 	cl_mem lightMem;
 	cl_mem sumMem;
 	cl_mem boundingBoxMem;
