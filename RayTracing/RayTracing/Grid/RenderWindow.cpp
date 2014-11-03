@@ -3,13 +3,21 @@
 /*
 CL_DEVICE_MAX_WORK_ITEM_SIZES - 1024, 1024, 64
 */
+
+/*index of refraction 
+Acrylic glass - 1.490
+glass in general seems to be 1.4 to 2.0
+diamond 2.4
+
+*/
+
 const cl_float RenderWindow::MIN = 10000000.0f;
 const cl_float RenderWindow::MAX = -10000000.0f;
 const cl_uint RenderWindow::NUMBER_OF_SPHERES = 1;
 
 
 RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance()), shadowsEnabled(false), 
-	numberOfReflections(1), reflectionsEnabled(true)
+	numberOfReflections(1), reflectionsEnabled(true), refractionsEnabled(false)
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
@@ -17,10 +25,19 @@ RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), g
 
 	initializeProgram();
 	construct();
-
-
-
 }
+
+void RenderWindow::changeLightType(int index)
+{
+	lights[0].type = (LightType)index;
+}
+
+void RenderWindow::changeLightType( QString index)
+{
+	//lights[0].type = (LightType)index;
+}
+
+
 RenderWindow::~RenderWindow(void)
 {
 
@@ -33,6 +50,7 @@ RenderWindow::~RenderWindow(void)
 	clReleaseKernel(drawSceneKernel);
 	clReleaseKernel(drawShadowRaysKernel);
 	clReleaseKernel(drawReflectionRaysKernel);
+	clReleaseKernel(drawRefractionRaysKernel);
 	clReleaseKernel(sceneBBoxKernel);
 	clReleaseKernel(initializeCellsKernel);
 	clReleaseKernel(findObjectCellsKernel);
@@ -42,6 +60,21 @@ RenderWindow::~RenderWindow(void)
 	releaseUpdate();
 
 }
+
+
+bool RenderWindow::isShadowsEnabled()const
+{
+	return shadowsEnabled;
+}
+bool RenderWindow::isReflectionsEnabled()const
+{
+	return reflectionsEnabled;
+}
+bool RenderWindow::isRefractionsEnabled()const
+{
+	return refractionsEnabled;
+}
+
 
 void RenderWindow::drawSecondaryRays()
 {
@@ -55,7 +88,11 @@ void RenderWindow::drawSecondaryRays()
 	}
 	if(refractionsEnabled)
 	{
+		setUpRefractionArgs();
 
+		err = clEnqueueNDRangeKernel(queue, drawRefractionRaysKernel, 2 ,
+			NULL, globalWorkSize, 
+			NULL, 0, NULL, NULL);
 	}
 
 	if(shadowsEnabled)
@@ -120,7 +157,7 @@ void RenderWindow::addMesh(std::string fileName, glm::vec3 position)
 
 	Material material = {{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
 	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
-	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}};
+	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f};
 
 	//glm::vec3 position(0,0,10);
 	for (UINT i = 0; i < modelIndices.size(); i+=3)
@@ -217,13 +254,13 @@ void RenderWindow::construct()
 	setMinimumSize(640,480);
 
 	layout = new QHBoxLayout();
-	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {0.0f,0.0f,20.0f}};
+	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {0.0f,0.0f,20.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::DIRECTIONAL_TYPE };
 	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f));
-	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
+	//("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
 	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f));
-	
-	addMesh("shadowPlane.obj", glm::vec3(4.0f,0.0f,12.0f));
-	addMesh("cylinder.obj", glm::vec3(0.0f,0.0f,9.0f));
+
+	//addMesh("shadowPlane.obj", glm::vec3(-4.0f,1.0f,12.0f));
+	addMesh("cylinder.obj", glm::vec3(0.0f,2.0f,9.0f));
 	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f));
 
 	//Random random = Random::getInstance();
@@ -292,9 +329,10 @@ void RenderWindow::updateDrawScene()
 {
 	//clEnqueueUnmapMemObject(queue,writeCLImage,readBuffer,0,0,0);
 
+	size_t gSize[3] = {windowWidth,windowHeight,sampleSquared};
 	setUpDrawSceneArgs();
-	err |= clEnqueueNDRangeKernel(queue, drawSceneKernel, 2,
-		NULL, &globalWorkSize[0], 
+	err |= clEnqueueNDRangeKernel(queue, drawSceneKernel, 3,
+		NULL, &gSize[0], 
 		NULL, 0, NULL, NULL);
 
 	drawSecondaryRays();
@@ -315,6 +353,8 @@ void RenderWindow::updateDrawScene()
 void RenderWindow::updateScene()
 {
 	//releaseUpdate();
+
+
 	timer.start();	
 	handleKeyInput();
 	camera.update();
@@ -331,8 +371,13 @@ void RenderWindow::updateScene()
 
 	interval = (timer.elapsed()/1000.0f);
 	fps = 1.0f/interval;
-
+	
+//	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {0.0f,0.0f,20.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::DIRECTIONAL_TYPE };
+//	lights[0]  = light;
+	clReleaseMemObject(lightMem);
+	lightMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Light), &lights[0],&err);
 }
+
 void RenderWindow::updateBBox()
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
@@ -442,7 +487,7 @@ void RenderWindow::releaseDrawScene()
 {
 	if(triangles.size())clReleaseMemObject(trianglesMem);
 	if(objects.size())clReleaseMemObject(objectMem);//
-	if(lights.size())clReleaseMemObject(lightMem);//
+	//if(lights.size())clReleaseMemObject(lightMem);//
 }
 void RenderWindow::releaseCells()
 {
@@ -621,6 +666,7 @@ void RenderWindow::initializeProgram()
 	drawSceneKernel = clCreateKernel(program, "drawScene", &err);
 	drawShadowRaysKernel = clCreateKernel(program, "drawShadowRays", &err);
 	drawReflectionRaysKernel = clCreateKernel(program, "drawReflectionRays", &err);
+	drawRefractionRaysKernel = clCreateKernel(program, "drawRefractionRays", &err);
 	sceneBBoxKernel = clCreateKernel(program, "generateSceneBBox", &err);
 	initializeCellsKernel = clCreateKernel(program, "initializeCells", &err);
 	findObjectCellsKernel = clCreateKernel(program,"findObjectCells", &err);
@@ -966,6 +1012,34 @@ void RenderWindow::setUpReflectionArgs()
 	err |= clSetKernelArg(drawReflectionRaysKernel,21 , sizeof(cl_float3) , &numberOfVoxels[0]);
 	err |= clSetKernelArg(drawReflectionRaysKernel,22 , sizeof(cl_float3) , &voxelWidth[0]);
 	err |= clSetKernelArg(drawReflectionRaysKernel,23 , sizeof(cl_int) , &numberOfReflections);
+}
+
+void RenderWindow::setUpRefractionArgs()
+{
+	err |= clSetKernelArg(drawRefractionRaysKernel,0 , sizeof(cl_mem), &writeCLImage);
+	err |= clSetKernelArg(drawRefractionRaysKernel,1 , sizeof(cl_mem), &depthBuffer);
+	err |= clSetKernelArg(drawRefractionRaysKernel,2 , sizeof(cl_sampler), &sampler);
+	err |= clSetKernelArg(drawRefractionRaysKernel,3 , sizeof(cl_int), &windowWidth);
+	err |= clSetKernelArg(drawRefractionRaysKernel,4 , sizeof(cl_int), &windowHeight);
+	err |= clSetKernelArg(drawRefractionRaysKernel,5 , sizeof(cl_mem), &objectMem);
+	err |= clSetKernelArg(drawRefractionRaysKernel,6 , sizeof(cl_mem),(triangles.size())? &trianglesMem : nullptr);
+	err |= clSetKernelArg(drawRefractionRaysKernel,7 , sizeof(cl_mem), &lightMem);
+	err |= clSetKernelArg(drawRefractionRaysKernel,8 , sizeof(cl_int), &numberOfObjects);
+	err |= clSetKernelArg(drawRefractionRaysKernel,9 , sizeof(cl_int), &numberOfLights);
+	err |= clSetKernelArg(drawRefractionRaysKernel,10, sizeof(BBox), &box);
+	err |= clSetKernelArg(drawRefractionRaysKernel, 11, sizeof(cl_mem), &cellsMem);
+	err |= clSetKernelArg(drawRefractionRaysKernel,12 , sizeof(cl_float3), &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawRefractionRaysKernel, 13, sizeof(cl_mem), &cellIndicesMem);
+	err |= clSetKernelArg(drawRefractionRaysKernel, 14, sizeof(cl_mem), &objectIndicesMem);
+	err |= clSetKernelArg(drawRefractionRaysKernel, 15, sizeof(Camera), &camera);
+	err |= clSetKernelArg(drawRefractionRaysKernel,16, sizeof(cl_int), &samples);
+	err |= clSetKernelArg(drawRefractionRaysKernel,17 , sizeof(cl_int), &sampleSquared);
+	err |= clSetKernelArg(drawRefractionRaysKernel,18 , sizeof(cl_float3) , &delta[0]);
+	err |= clSetKernelArg(drawRefractionRaysKernel,19 , sizeof(cl_float3) , &deltaInv[0]);
+	err |= clSetKernelArg(drawRefractionRaysKernel,20 , sizeof(cl_float3) , &voxelInvWidth[0]);
+	err |= clSetKernelArg(drawRefractionRaysKernel,21 , sizeof(cl_float3) , &numberOfVoxels[0]);
+	err |= clSetKernelArg(drawRefractionRaysKernel,22 , sizeof(cl_float3) , &voxelWidth[0]);
+	err |= clSetKernelArg(drawRefractionRaysKernel,23 , sizeof(cl_int) , &numberOfReflections);
 }
 
 void RenderWindow::setUpShadowArgs()

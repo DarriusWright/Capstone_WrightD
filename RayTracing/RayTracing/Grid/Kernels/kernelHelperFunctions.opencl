@@ -1,4 +1,8 @@
-__constant float epsilion = 0.00001;
+__constant float epsilion = 0.00001f;
+__constant float airIndex = 1.000293f;
+__constant uint DIRECTIONAL_LIGHT = 0;
+__constant uint POINT_LIGHT = 1;
+
 
 typedef struct
 {
@@ -76,6 +80,9 @@ typedef struct
 {
 	Material material;
 	float3 position;
+	float4 direction;
+	int type;
+	float d[3]
 }Light;
 
 typedef struct
@@ -370,29 +377,47 @@ SphereInfo sphereIntersection(Ray ray, float3 position, float radius)
 	return s;
 }
 
-uint4 adsLightS(Object object,Light light,SphereInfo sphereInfo)
-{
-	float3 ambient = object.material.ambient.xyz * light.material.ambient.xyz;
-	float3 lightVector = normalize( light.position.xyz - object.position.xyz);
-	float lightDotNormal = max(dot(lightVector.xyz,sphereInfo.normal.xyz), 0.0);
-	float3 diffuse = object.material.diffuse.xyz * light.material.diffuse.xyz * lightDotNormal;
-	float3 finalColor =   diffuse;//ambient + diffuse;// + specular;
-	return (uint4)((convert_uint3(finalColor * 255.0f)),255);
-}
 
 
-uint4 adsLightT(Object object,Light light,TriangleInfo triangleInfo)
+uint4 adsLight(Light light, Material material, Camera camera, float3 intersectionPoint,  float3 normal)
 {
-	float3 ambient = object.material.ambient.xyz * light.material.ambient.xyz;
-	float3 lightVector = normalize( light.position.xyz - object.position.xyz);
-	float lightDotNormal = max(dot(lightVector.xyz,triangleInfo.normal.xyz), 0.0);
-	float3 diffuse = object.material.diffuse.xyz * light.material.diffuse.xyz * lightDotNormal;
-	//float3 finalColor =   ambient + diffuse;// + specular;
-	float3 finalColor =   diffuse;//ambient + diffuse;// + specular;
+	float3 lightVector ;//=normalize(light.position - intersectionPoint);// normalize( light.position.xyz - object.position.xyz);
+	lightVector = (light.type == DIRECTIONAL_LIGHT) ? normalize(light.direction.xyz) : normalize(light.position - intersectionPoint);
+
+
+
+	float lightDotNormal = max(dot(lightVector.xyz,normal.xyz), 0.0);
+	//float3 diffuse = object.material.diffuse.xyz * light.material.diffuse.xyz * lightDotNormal;
+	float diffuseFactor = dot(normal,lightVector);
+	float3 diffuse = light.material.diffuse.xyz * max(diffuseFactor, 0.0f) * material.diffuse.xyz;// * (light.type == POINT_LIGHT) ? attenuation : 1.0f;
+	float3 ambient = material.ambient.xyz * light.material.ambient.xyz;
+
+	float3 s = dot(normal, lightVector) * normal - lightVector;
+	float3 r =  (2.0f*(dot(normal, lightVector) * normal)) - lightVector;
+	float3 v = intersectionPoint - camera.position;
+	r = normalize(r);
+	v = normalize(v);
+	s = normalize(s);
+
+	if(dot(r,v) < 0)
+	{
+		r = (float3)(0.0f,0.0f,0.0f);
+		v = (float3)(0.0f,0.0f,0.0f);
+	}
+	float specularPower = pow(dot(v,r), material.specular.w);
+
+	float3 specular = light.material.specular.xyz * specularPower * material.specular;// * attenuation;//* (light.type == POINT_LIGHT) ? attenuation : 1.0f;
+	if(light.type == POINT_LIGHT)
+	{
+		float attenuation = clamp((1.0f - length(lightVector)/ light.direction.w) , 0.0f, 1.0f);
+		diffuse *= attenuation;
+		specular *= attenuation;
+	}
 	
-	return (uint4)((convert_uint3(finalColor * 255.0f)),255);
+	float3 finalColor =   ambient + diffuse ;//+ specular;
+	
+	return (uint4)((convert_uint3(finalColor * 255.0f)),255);	
 }
-
 
 bool bboxCollided(BBox b1 , BBox b2)
 {
@@ -416,4 +441,9 @@ bool bboxObjectCollided(BBox b1 , Object o1)
 
 	return bboxCollided(b1,box);
 
+}
+
+uint3 convertColor(float4 color)
+{
+	return convert_uint3(color.xyz * 255.0f);
 }

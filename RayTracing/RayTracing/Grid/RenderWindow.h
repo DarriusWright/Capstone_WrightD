@@ -53,6 +53,12 @@ public:
 	void setShadowsEnabled(bool enabled);
 	void setReflectionsEnabled(bool enabled);
 	void setRefractionsEnabled(bool enabled);
+	bool isShadowsEnabled()const;
+	bool isReflectionsEnabled()const;
+	bool isRefractionsEnabled()const;
+	vector<Light> lights;
+	void changeLightType(int index);
+	void changeLightType(QString index);
 
 
 //	void initialize()override;
@@ -134,6 +140,7 @@ private:
 	void setUpDrawSceneArgs();
 	void setUpShadowArgs();
 	void setUpReflectionArgs();
+	void setUpRefractionArgs();
 	void setUpSceneBoxArgs();
 	void setUpCellArgs();
 	void setUpCellObjectArgs();
@@ -154,7 +161,6 @@ private:
 	QHBoxLayout * layout;
 	QLabel imageLabel;
 	vector<Object> objects;
-	vector<Light> lights;
 
 
 	//cl_event 
@@ -176,6 +182,7 @@ private:
 	cl_kernel drawSceneKernel;
 	cl_kernel drawShadowRaysKernel;
 	cl_kernel drawReflectionRaysKernel;
+	cl_kernel drawRefractionRaysKernel;
 	cl_kernel findObjectCellsKernel;
 
 

@@ -79,6 +79,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="UI\Float3Slider.cpp" />
+    <ClCompile Include="UI\FloatSlider.cpp" />
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="OpenGLWindow.cpp" />
     <ClCompile Include="OpenGLWindow_moc.cpp" />
@@ -88,6 +90,8 @@
     <ClCompile Include="TriangleWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="UI\Float3Slider.h" />
+    <ClInclude Include="UI\FloatSlider.h" />
     <ClInclude Include="MainWindow.h" />
     <ClInclude Include="OpenGLWindow.h" />
     <ClInclude Include="RenderWindow.h" />

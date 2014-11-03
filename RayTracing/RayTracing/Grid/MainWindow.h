@@ -14,6 +14,10 @@
 #include "RenderWindow.h"
 #include <string>
 #include <QtWidgets\qlabel.h>
+#include <QtWidgets\qtabwidget.h>
+#include "UI\FloatSlider.h"
+#include "UI\Float3Slider.h"
+#include <QtWidgets\qcombobox.h>
 class MainWindow : public QMainWindow
 {
 	//Q_OBJECT
@@ -32,12 +36,19 @@ private:
 	QAction * addAction(const char * title, int shortCut= 0);
 	void addMenu(const char * title,QAction * action);
 	void addMenus();
-	QLabel * featuresLabel;
-	QCheckBox * enableShadows;
-	QCheckBox * enableReflections;
-	QCheckBox * enableRefractions;
-
-
+	//QLabel * featuresLabel;
+	//QCheckBox * enableShadows;
+	//QCheckBox * enableReflections;
+	//QCheckBox * enableRefractions;
+	QComboBox * lightSelection;
+	FloatSlider * pointLightRadius;
+	FloatSlider * specularPower;
+	Float3Slider * direction;
+	Float3Slider * position;
+	Float3Slider * ambient;
+	Float3Slider * diffuse;
+	Float3Slider * specular;
+	float radius;
 	QTimer updateTimer;
 
 //private slots:

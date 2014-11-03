@@ -1,8 +1,19 @@
 #pragma once
 #include <Objects\Material.h>
 
-typedef struct
+enum LightType
+{
+	DIRECTIONAL_TYPE = 0,
+	POINT_TYPE = 1
+
+};
+
+
+struct Light
 {
 	Material material;
 	cl_float3 position;
-}Light;
+	cl_float4 direction;
+	LightType type;
+	float d[3];
+};

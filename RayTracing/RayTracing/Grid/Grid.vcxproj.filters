@@ -36,6 +36,12 @@
     <ClCompile Include="OpenGLWindow_moc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="UI\Float3Slider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\FloatSlider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RenderWindow.h">
@@ -48,6 +54,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="OpenGLWindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\Float3Slider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\FloatSlider.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -236,7 +236,8 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 										triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
 										if(triInfo.hasIntersection)
 										{
-											outColor = (uint4)adsLightT(objects[objectIndex], light[0], triInfo);
+											//outColor = (uint4)adsLight(objects[objectIndex], light[0], triInfo);
+											outColor = adsLight(light[0], objects[objectIndex].material, camera, ray.direction * triInfo.distanceFromIntersection, triInfo.normal);
 											lastDistance = triInfo.distanceFromIntersection;
 											write_imagef(depthBuffer,outImageCoord,lastDistance);
 											run = false;
@@ -389,19 +390,18 @@ __kernel void drawReflectionRays(__write_only image2d_t dstImage,
 				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
 				if(triInfo.hasIntersection)
 				{
-					outColor = (uint4)adsLightT(objects[objectIndex], light[0], triInfo);
-					write_imageui(dstImage, outImageCoord, outColor);
+					outColor = adsLight(light[0], objects[objectIndex].material, camera, ray.direction * triInfo.distanceFromIntersection, triInfo.normal);
 					normal = triInfo.normal;
 					findTri = true;
 				}			
 		}
 		outColor.w = 255;
 		bool reflectionRun = true;											
-		float3 reflected = -ray.direction  - 2 * dot(ray.direction , normal) * normal;
+		float3 reflected =-ray.direction  - 2 * dot(ray.direction , normal) * normal;
 		Ray reflectionRay;
 		reflectionRay.direction = reflected;
 
-		reflectionRay.origin = ((ray.direction.xyz * lastDistance) + ray.origin.xyz) + (reflected * epsilion);
+		reflectionRay.origin = ((ray.direction.xyz * lastDistance) + ray.origin.xyz)+ (reflected * epsilion);
 
 		HitReturn reflectionHit = hitBBox(reflectionRay,box.min,box.max);
 		currentCell = (int3)(convert_int3(clamp((reflectionRay.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
@@ -429,8 +429,9 @@ __kernel void drawReflectionRays(__write_only image2d_t dstImage,
 				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
 				if(triInfo.hasIntersection)
 				{
-					outColor.xyz = mixUIntColor(outColor.xyz,adsLightT(objects[objectIndex], light[0], triInfo).xyz);//convert_uint3(finalColor);//adsLightT(objects[objectIndex], light[0], triInfo).xyz;
+					outColor.xyz = mixUIntColor(outColor.xyz,adsLight(light[0], objects[objectIndex].material, camera, reflectionRay.direction * triInfo.distanceFromIntersection, triInfo.normal).xyz);//convert_uint3(finalColor);//adsLightT(objects[objectIndex], light[0], triInfo).xyz;
 					//clamp(outColor, (uint4)(0,0,0,0), (uint4)(255,255,255,255));
+					//outColor = adsLight(light[0], objects[objectIndex].material, camera, reflectionRay.direction * triInfo.distanceFromIntersection, triInfo.normal);
 					write_imageui(dstImage, outImageCoord, outColor);
 					reflectionRun = false;
 				}
@@ -449,3 +450,122 @@ __kernel void drawReflectionRays(__write_only image2d_t dstImage,
 		}
 	}
 }
+
+__kernel void drawRefractionRays(__write_only image2d_t dstImage, 
+	image2d_t depthBuffer,sampler_t sampler, int width, int height, 
+	__global Object * objects, __global Triangle * triangles, 
+	__global Light * light, int numberOfObjects, int numberOfLights, 
+	BBox box,__global int * cells, float3 cellDimensions,
+	__global int * cellIndices, __global int * objectIndices,
+	Camera camera, int samples, int samplesSquared , 
+	float3 delta, float3 deltaInv, float3 voxelInvWidth, float3 numberOfVoxels 
+	,float3 voxelWidth, int numberOfReflections)
+{
+
+	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
+	float lastDistance =read_imagef(depthBuffer,sampler,outImageCoord).x;
+
+	if(lastDistance> 0.0f)
+	{
+		Ray ray = generateRay(outImageCoord, width, height, camera,(int2)(0,0),1);
+		HitReturn hitCheck = hitBBox(ray,box.min,box.max);
+
+		int3 currentCell;
+		
+		if(!insideBBox(ray.origin.xyz,box.min,box.max ))
+		{
+			float3 p = ray.origin.xyz + (hitCheck.minValue * ray.direction.xyz);
+		    currentCell = (int3)(convert_int3(clamp((p - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), cellDimensions - 1.0f)));
+		}
+		else
+		{
+			currentCell = (int3)(convert_int3(clamp((ray.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
+		}		
+
+		int cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+		uint4 outColor  = (uint4)(0,0,0,255);
+		float3 normal = (float3)(0,0,0);
+
+		int cellObjectNumber = (cellIndex > 0) ? cellIndices[cellIndex]- cellIndices[cellIndex-1]  : cellIndices[0];
+		bool findTri = false;
+		int objectIndex = 0;
+		for(int i = 0; i <  cellObjectNumber && !findTri; i++ )
+		{
+				objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
+
+				TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
+				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
+				if(triInfo.hasIntersection)
+				{
+					outColor = adsLight(light[0], objects[objectIndex].material, camera, ray.direction * triInfo.distanceFromIntersection, triInfo.normal);
+					normal = triInfo.normal;
+					findTri = true;
+				}			
+		}
+		outColor.w = 255;
+		bool refractionRun = true;											
+	
+		float angle  = -dot(light[0].direction.xyz, normal);
+		float n1 = airIndex;
+		float n2 = objects[objectIndex].material.refraction;
+
+		float index = n1/n2;
+
+		float refractedAngle = sqrt(1- (index*index) * (1 - (angle * angle)));
+
+		float3 refracted = (index * light[0].direction.xyz) + (index * angle - refractedAngle) * normal;
+
+
+		Ray refractionRay;
+		refractionRay.direction = refracted;
+
+		refractionRay.origin = ((ray.direction.xyz * lastDistance) + ray.origin.xyz) + (refracted * epsilion);
+
+		HitReturn refractionHit = hitBBox(refractionRay,box.min,box.max);
+		currentCell = (int3)(convert_int3(clamp((refractionRay.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
+
+
+		StepInfo refractionStep = findStepInfo(currentCell,refractionRay,0.0f, refractionHit.maxValue, voxelWidth, box, numberOfVoxels );
+	
+		StepReturn stepRet =  stepThroughGrid(refractionStep,currentCell,refractionHit.maxValue);
+		currentCell = stepRet.currentCell;
+		refractionStep = stepRet.stepInfo;
+		refractionRun = stepRet.continueStep;
+				
+		cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+	
+		while(refractionRun)
+		{
+			int cellObjectNumber = (cellIndex > 0) ? cellIndices[cellIndex]- cellIndices[cellIndex-1]  : cellIndices[0];
+
+			for(int i = 0; i <  cellObjectNumber && refractionRun; i++ )
+			{
+				int objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
+
+				TriangleInfo triInfo = triangleCollision(refractionRay,triangles[objects[objectIndex].triangleIndex]);
+				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
+				if(triInfo.hasIntersection)
+				{
+					float frenselEffect = mix(pow(1 - dot(ray.direction.xyz,normal), 3) ,1,0.1);
+
+					outColor.xyz = mixUIntColor(convert_uint3(convert_float3(outColor.xyz) * (1 - frenselEffect) * 0.5f), convertColor(objects[objectIndex].material.diffuse)); 
+					write_imageui(dstImage, outImageCoord, outColor);
+					refractionRun = false;//(numberOfIter < 2);
+
+				}
+					
+			}
+			if(refractionRun)
+			{
+				StepReturn stepReturned =  stepThroughGrid(refractionStep,currentCell,refractionHit.maxValue);
+				currentCell = stepReturned.currentCell;
+				refractionRun = stepReturned.continueStep;
+				refractionStep = stepReturned.stepInfo;
+			}
+
+			cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+			
+		}
+	}
+}
+
