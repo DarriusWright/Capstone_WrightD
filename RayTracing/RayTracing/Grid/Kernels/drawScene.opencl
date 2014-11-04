@@ -483,12 +483,13 @@ __kernel void drawRefractionRays(__write_only image2d_t dstImage,
 		}		
 
 		int cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
-		uint4 outColor  = (uint4)(0,0,0,255);
+		uint4 outColor = (uint4)(0,0,0,255);
 		float3 normal = (float3)(0,0,0);
 
 		int cellObjectNumber = (cellIndex > 0) ? cellIndices[cellIndex]- cellIndices[cellIndex-1]  : cellIndices[0];
 		bool findTri = false;
 		int objectIndex = 0;
+		float oDistance = 0.0f;
 		for(int i = 0; i <  cellObjectNumber && !findTri; i++ )
 		{
 				objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
@@ -499,72 +500,74 @@ __kernel void drawRefractionRays(__write_only image2d_t dstImage,
 				{
 					outColor = adsLight(light[0], objects[objectIndex].material, camera, ray.direction * triInfo.distanceFromIntersection, triInfo.normal);
 					normal = triInfo.normal;
+					oDistance = triInfo.distanceFromIntersection;
 					findTri = true;
 				}			
 		}
 		outColor.w = 255;
 		bool refractionRun = true;											
-	
-		float angle  = -dot(light[0].direction.xyz, normal);
+		float3 lightDirection = (light[0].type == DIRECTIONAL_LIGHT) ? light[0].direction.xyz : light[0].position.xyz - (ray.direction.xyz * oDistance);
+		float angle  = -dot(-ray.direction, normal);
 		float n1 = airIndex;
-		float n2 = objects[objectIndex].material.refraction;
+		float n2 = 1.46f;//objects[objectIndex].material.refraction;
 
 		float index = n1/n2;
 
 		float refractedAngle = sqrt(1- (index*index) * (1 - (angle * angle)));
-
-		float3 refracted = (index * light[0].direction.xyz) + (index * angle - refractedAngle) * normal;
-
-
-		Ray refractionRay;
-		refractionRay.direction = refracted;
-
-		refractionRay.origin = ((ray.direction.xyz * lastDistance) + ray.origin.xyz) + (refracted * epsilion);
-
-		HitReturn refractionHit = hitBBox(refractionRay,box.min,box.max);
-		currentCell = (int3)(convert_int3(clamp((refractionRay.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
-
-
-		StepInfo refractionStep = findStepInfo(currentCell,refractionRay,0.0f, refractionHit.maxValue, voxelWidth, box, numberOfVoxels );
-	
-		StepReturn stepRet =  stepThroughGrid(refractionStep,currentCell,refractionHit.maxValue);
-		currentCell = stepRet.currentCell;
-		refractionStep = stepRet.stepInfo;
-		refractionRun = stepRet.continueStep;
-				
-		cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
-	
-		while(refractionRun)
+		//float refractedAngle = (index*index) * (1 - (angle * angle));
+		if(refractedAngle>= 0.0f && findTri)
 		{
-			int cellObjectNumber = (cellIndex > 0) ? cellIndices[cellIndex]- cellIndices[cellIndex-1]  : cellIndices[0];
 
-			for(int i = 0; i <  cellObjectNumber && refractionRun; i++ )
-			{
-				int objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
+			float3 refracted = (index * (angle - refractedAngle))  * - normal - (index * -ray.direction);
+			Ray refractionRay;
+			refractionRay.direction = normalize(refracted);
 
-				TriangleInfo triInfo = triangleCollision(refractionRay,triangles[objects[objectIndex].triangleIndex]);
-				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
-				if(triInfo.hasIntersection)
-				{
-					float frenselEffect = mix(pow(1 - dot(ray.direction.xyz,normal), 3) ,1,0.1);
+			refractionRay.origin = ((ray.direction.xyz * lastDistance) + ray.origin.xyz) + (refracted * epsilion);
 
-					outColor.xyz = mixUIntColor(convert_uint3(convert_float3(outColor.xyz) * (1 - frenselEffect) * 0.5f), convertColor(objects[objectIndex].material.diffuse)); 
-					write_imageui(dstImage, outImageCoord, outColor);
-					refractionRun = false;//(numberOfIter < 2);
+			HitReturn refractionHit = hitBBox(refractionRay,box.min,box.max);
+			currentCell = (int3)(convert_int3(clamp((refractionRay.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
 
-				}
+
+			StepInfo refractionStep = findStepInfo(currentCell,refractionRay,0.0f, refractionHit.maxValue, voxelWidth, box, numberOfVoxels );
+		
+			StepReturn stepRet =  stepThroughGrid(refractionStep,currentCell,refractionHit.maxValue);
+			currentCell = stepRet.currentCell;
+			refractionStep = stepRet.stepInfo;
+			refractionRun = stepRet.continueStep;
 					
-			}
-			if(refractionRun)
-			{
-				StepReturn stepReturned =  stepThroughGrid(refractionStep,currentCell,refractionHit.maxValue);
-				currentCell = stepReturned.currentCell;
-				refractionRun = stepReturned.continueStep;
-				refractionStep = stepReturned.stepInfo;
-			}
-
 			cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
-			
+		
+			while(refractionRun)
+			{
+				int cellObjectNumber = (cellIndex > 0) ? cellIndices[cellIndex]- cellIndices[cellIndex-1]  : cellIndices[0];
+
+				for(int i = 0; i <  cellObjectNumber && refractionRun; i++ )
+				{
+					int objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
+
+					TriangleInfo triInfo = triangleCollision(refractionRay,triangles[objects[objectIndex].triangleIndex]);
+					triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
+					if(triInfo.hasIntersection)
+					{
+						///float frenselEffect = mix(pow(1 - dot(ray.direction.xyz,normal), 3) ,1,0.1);
+						//outColor.xyz = mixUIntColor(convert_uint3(convert_float3(outColor.xyz) * (1 - frenselEffect) * 0.5f), convertColor(objects[objectIndex].material.diffuse)); 
+						outColor.xyz = mixUIntColor(outColor.xyz,adsLight(light[0], objects[objectIndex].material, camera, refractionRay.direction * triInfo.distanceFromIntersection, triInfo.normal).xyz);//convert_uint3(finalColor);//adsLightT(objects[objectIndex], light[0], triInfo).xyz;
+						write_imageui(dstImage, outImageCoord, outColor);
+						refractionRun = false;//(numberOfIter < 2);
+					}
+						
+				}
+				if(refractionRun)
+				{
+					StepReturn stepReturned =  stepThroughGrid(refractionStep,currentCell,refractionHit.maxValue);
+					currentCell = stepReturned.currentCell;
+					refractionRun = stepReturned.continueStep;
+					refractionStep = stepReturned.stepInfo;
+				}
+
+				cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+				
+			}
 		}
 	}
 }

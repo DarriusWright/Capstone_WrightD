@@ -17,7 +17,7 @@ const cl_uint RenderWindow::NUMBER_OF_SPHERES = 1;
 
 
 RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance()), shadowsEnabled(false), 
-	numberOfReflections(1), reflectionsEnabled(true), refractionsEnabled(false)
+	numberOfReflections(1), reflectionsEnabled(false), refractionsEnabled(true)
 {
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
 	box = b;
@@ -254,7 +254,7 @@ void RenderWindow::construct()
 	setMinimumSize(640,480);
 
 	layout = new QHBoxLayout();
-	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {0.0f,0.0f,20.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::DIRECTIONAL_TYPE };
+	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {0.0f,0.0f,20.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::POINT_TYPE };
 	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f));
 	//("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
 	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f));
