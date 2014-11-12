@@ -1,8 +1,133 @@
+
+
+#pragma OPENCL EXTENSION cl_khr_fp64: enable
+
 __constant float epsilion = 0.00001f;
 __constant float airIndex = 1.000293f;
 __constant uint DIRECTIONAL_LIGHT = 0;
 __constant uint POINT_LIGHT = 1;
 
+__constant uint PINHOLE_CAMERA = 0;
+__constant uint THINLENS_CAMERA = 1;
+__constant uint FISHEYE_CAMERA = 2;
+__constant uint SPHERICAL_CAMERA = 3;
+__constant uint STEREO_CAMERA = 4;
+__constant float PI = 3.1415926535f;//...
+__constant float 1_PI = 1.0f/PI;
+
+typedef struct
+{
+	float3 color;
+	float3 reflection;
+}BRDFRet;
+
+typedef struct BRDF
+{
+	float kd;
+	float3 cd;
+	uint type;
+}BRDF;
+
+float3 findBRDFrho(BRDF brdf, direction)
+{
+	if(brdf == 0) // lambertian
+	{
+		return brdf.kd * cd * (1/PI);
+	}
+
+}
+float3 findBRDFf(BRDF brdf, direction)
+{
+	if(brdf == 0) // lambertian
+	{
+		return brdf.kd * cd;
+	}
+
+}
+
+IntersectionInfo rayTrace(Ray ray,Camera camera, 
+	__global int * cellIndices, __global int * objectIndices,
+	__global Light * light, __global Object * objects,
+	__global Triangle * triangles, int cellIndex, int3 currentCell,
+	 BBox box,float3 voxelWidth,  float3 cellDimensions)
+{
+	bool run = true;
+	IntersectionInfo intersect;
+	intersect.distance = -1;
+	float lastDistance = 100000.0f;
+	HitReturn hitCheck = hitBBox(ray,box.min,box.max);
+	float maxVal=hitCheck.maxValue;
+	
+	StepInfo s=  findStepInfo(currentCell, ray,hitCheck.minValue, hitCheck.maxValue, voxelWidth, box, cellDimensions );
+
+	while(run)
+	{
+		
+		int cellObjectNumber = (cellIndex > 0) ? cellIndices[cellIndex]- cellIndices[cellIndex-1]  : cellIndices[0];
+		int objectColorIndex = 0;
+		float3 normal;
+		for(int i = 0; i <  cellObjectNumber; i++ )
+		{
+			int objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
+			if(objects[objectIndex].position.w == 0.0)
+			{
+				TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
+				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
+				if(triInfo.hasIntersection && lastDistance  > triInfo.distanceFromIntersection)
+				{
+					//outColor = (uint4)adsLight(objects[objectIndex], light[0], triInfo);
+					lastDistance = triInfo.distanceFromIntersection;
+					normal = triInfo.normal;
+					objectColorIndex = objectIndex;
+					run = false;
+				}
+
+			}
+
+		}
+
+		if(!run)
+		{
+			intersect.direction = ray.direction;
+			intersect.position = ray.direction * lastDistance + ray.origin;
+			float3 intersectionPoint = ray.direction.xyz * lastDistance;
+			intersect.color.xyz = convert_float3(adsLight(light[0], objects[objectColorIndex].material, camera, intersectionPoint, normal).xyz);
+			intersect.color.xyz /= 255.0f;
+			//intersect.color.w = 255.0f;
+			intersect.distance = lastDistance;
+			intersect.objectIndex = objectColorIndex;
+			intersect.type = TRIANGLE;
+		}
+
+		if(run)
+		{
+			StepReturn stepReturned =  stepThroughGrid(s,currentCell,maxVal);
+			currentCell = stepReturned.currentCell;
+			run = stepReturned.continueStep;
+			s = stepReturned.stepInfo;
+		}
+
+		cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+	}
+
+	return intersect;
+}
+
+float clampFloat(float x)
+{
+	return clamp(x,0,1);
+}
+
+uint toUInt(float x)
+{
+	return (uint)(pow(clampFloat(x),1.0f/2.2f) * 255 + .5);
+}
+
+
+uint4 toRGBA(float4 color)
+{
+	return (uint)(toUInt(color.x),toUInt(color.y),toUInt(color.z),toUInt(color.w))
+}
 
 typedef struct
 {
@@ -58,8 +183,11 @@ typedef struct
 	float3 w;
 	float3 up;
 	float3 lookAt;
-	float3 position;
+	float4 position;
 	float distance;
+	float zoom;
+	uint type;
+	float focalDistance;
 }Camera;
 
 typedef struct
@@ -317,27 +445,135 @@ HitReturn hitBox(Ray ray, BBox box)
 	return hitBBox(ray,box.min, box.max);
 }
 
-Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 dim, int sampleNumber)
+long inline nextPowerOfTwo(long number)
 {
-	/*
-	Ray ray;
-	float2 pixelToRay = (float2)(pixelLocation.x - (0.5f * width -1.0f), pixelLocation.y - (0.5 * (height - 1.0f)));
-	ray.origin = camera.position;
-	ray.direction = normalize(pixelToRay.x * camera.u + pixelToRay.y * camera.v - camera.distance * camera.w);
-
-	return ray;
-	*/
-	
-	
-	Ray ray;
-	float2 pixelToRay = (float2)((pixelLocation.x - (0.5f * width)) + (dim.x + 0.5)/sampleNumber, (pixelLocation.y - (0.5 * height)) + (dim.y + 0.5)/sampleNumber);
-
-	ray.origin.xyz = camera.position;
-	ray.direction.xyz = normalize((pixelToRay.x * -camera.u) + (pixelToRay.y * -camera.v) - (camera.distance * camera.w));
-
-
-	return ray;
+	return pow(2.0, ceil(log((double)number)/log(2.0)));
 }
+
+float randFloat(long seed)
+{
+	//Java's implementation
+	long randomNumber = ((seed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1)) ;
+	long randomNumber2 = (((seed + seed) * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1)) ;
+	
+	long minNum = min(randomNumber, randomNumber2);
+	long maxNum = max(randomNumber, randomNumber2);
+
+
+	float result =  (float)minNum/ (float)maxNum;//nextPowerOfTwo(randomNumber) ;
+	return result;
+}
+
+
+float3 mapToHemiSphere(float2 samplePoint, float e)
+{
+	float cosPhi = cos(2.0f * PI * samplePoint.x);
+	float sinPhi = sin(2.0f * PI * samplePoint.x);
+	float cosTheata = pow((1.0f - samplePoint.y), 1.0f / (e + 1.0f)) ;
+	float sinTheata = sqrt(1.0f - cosTheata * cosTheata) ;
+
+	return (float3)(sinTheata * cosPhi, sinTheata * sinPhi, cosTheata);
+
+}
+
+float2 mapToDisk(float2 samplePoint)
+{
+	float r,phi;
+
+	if(samplePoint.x > -samplePoint.y)
+	{
+		if(samplePoint.x > samplePoint.y)
+		{
+			r = samplePoint.x;
+			phi = samplePoint.y/ samplePoint.x;
+		}
+		else
+		{
+			r = samplePoint.y;
+			phi = 2 - samplePoint.x/ samplePoint.y;
+		}
+	}
+	else
+	{
+		if(samplePoint.x < samplePoint.y)
+		{
+			r = -samplePoint.x;
+			phi = 4 + samplePoint.y/ samplePoint.x;
+		}
+		else
+		{
+			r = -samplePoint.y;
+			if(samplePoint.y != 0.0f)
+				phi = 6 - samplePoint.x/samplePoint.y;
+			else
+				phi = 0.0f;
+		}
+	}
+	phi *= PI/4.0f;
+
+	return (float2)(r* cos(phi),r * sin(phi));
+}
+
+
+Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 dim, int sampleNumber , int seed)
+{
+	Ray ray;
+
+	long xSeed = pixelLocation.x + dim.x + seed;
+	long ySeed = pixelLocation.y + dim.y + seed * xSeed;
+	float r1  = 2 * randFloat(xSeed) , dx = r1 < 1 ? sqrt(r1)-1 : 1 - sqrt(2 -r1);
+	float r2  = 2 * randFloat(ySeed) , dy = r2 < 1 ? sqrt(r2)-1 : 1 - sqrt(2 -r2);
+
+
+	ray.direction = camrea.u * (((dim.x + 0.5 +dx )/2.0f + pixelLocation.x)/width - .5) + 
+	camrea.v * (((dim.y + 0.5 +dy )/2.0f + pixelLocation.y)/height - .5) + 
+	(camera.distance * camera.w);
+
+
+	
+
+
+
+	/*
+	long xSeed = pixelLocation.x + dim.x + seed;
+	long ySeed = pixelLocation.y + dim.y + seed * xSeed;
+
+	Ray ray;
+
+	float2 samplePoint = (float2)( (dim.x + randFloat(xSeed)) , (dim.y + randFloat(ySeed)));
+	
+	float3 direction;
+	float3 origin = camera.position.xyz;
+	float2 pp =  (float2)((pixelLocation.x - (0.5f * width)) + samplePoint.x/sampleNumber, (pixelLocation.y - (0.5 * height)) + samplePoint.y/sampleNumber);
+	float2 pixelToRay = pp;
+
+	if(camera.type == PINHOLE_CAMERA)
+	{
+		direction = normalize((pixelToRay.x * -camera.u) + (pixelToRay.y * -camera.v) - (camera.distance * camera.w));
+	}
+	else
+	{
+		float2 point = convert_float2(pixelToRay) * camera.focalDistance / camera.distance;
+		float2 lensPoint = mapToDisk(pix) * camera.position.w;
+		origin += ((-lensPoint.x * camera.u)  + (-lensPoint.y * camera.v));
+		direction = normalize((pixelToRay.x - lensPoint.x) * -camera.u + ((pixelToRay.y - lensPoint.y) * -camera.v) - (camera.focalDistance * camera.w));
+	}
+
+	 
+
+ 	//pixelToRay = mapToHemiSphere(normalize(pixelToRay), 1).xy;
+ 	ray.origin.xyz = origin;
+	ray.direction.xyz = direction;
+
+
+	return ray;*/
+}
+
+
+
+
+
+
 
 SphereInfo sphereIntersection(Ray ray, float3 position, float radius)
 {
@@ -386,7 +622,7 @@ uint4 adsLight(Light light, Material material, Camera camera, float3 intersectio
 
 
 
-	float lightDotNormal = max(dot(lightVector.xyz,normal.xyz), 0.0);
+	float lightDotNormal = max(dot(lightVector.xyz,normal.xyz), 0.0f);
 	//float3 diffuse = object.material.diffuse.xyz * light.material.diffuse.xyz * lightDotNormal;
 	float diffuseFactor = dot(normal,lightVector);
 	float3 diffuse = light.material.diffuse.xyz * max(diffuseFactor, 0.0f) * material.diffuse.xyz;// * (light.type == POINT_LIGHT) ? attenuation : 1.0f;
@@ -414,11 +650,16 @@ uint4 adsLight(Light light, Material material, Camera camera, float3 intersectio
 		specular *= attenuation;
 	}
 	
-	float3 finalColor =   ambient + diffuse ;//+ specular;
+	float3 finalColor =   ambient + diffuse + specular;
 	
 	return (uint4)((convert_uint3(finalColor * 255.0f)),255);	
 }
 
+
+uint3 convertColor(float4 color)
+{
+	return convert_uint3(color.xyz * 255.0f);
+}
 bool bboxCollided(BBox b1 , BBox b2)
 {
 	return (b1.min.x <= b2.min.x + fabs(b2.min.x - b2.max.x) &&
@@ -441,9 +682,4 @@ bool bboxObjectCollided(BBox b1 , Object o1)
 
 	return bboxCollided(b1,box);
 
-}
-
-uint3 convertColor(float4 color)
-{
-	return convert_uint3(color.xyz * 255.0f);
 }

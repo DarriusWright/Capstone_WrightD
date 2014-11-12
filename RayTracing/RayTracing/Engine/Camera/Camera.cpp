@@ -1,7 +1,8 @@
 #include "Camera.h"
 
 
-Camera::Camera(glm::vec3 position , glm::vec3 lookAt, float distance) : up(0,1,0,0), position(position,0.0), lookAt(lookAt,0.0), distance(distance)
+Camera::Camera(glm::vec3 position , glm::vec3 lookAt, float distance, float radius, float focalDistance) :focalDistance(focalDistance), up(0,1,0,0), position(position,radius), lookAt(lookAt,0.0), distance(distance)
+	,type(CameraType::Pinhole)
 {
 }
 

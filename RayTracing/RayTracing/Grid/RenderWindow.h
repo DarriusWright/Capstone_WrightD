@@ -5,7 +5,7 @@
 #include <QtWidgets\qlabel.h>
 #include <QtWidgets\qgraphicsview.h>
 #include <QtWidgets\qgraphicsscene.h>
-#include <QtOpenGL\qgl.h>
+
 #include <QtCore\qtimer.h>
 #include <Windows.h>
 #include <iostream>
@@ -17,12 +17,10 @@
 #include<QtCore\qelapsedtimer.h>
 #include <Camera\Camera.h>
 #include <string>
-#include <QtOpenGL\qglfunctions.h>
 #include <QtGui\qwindow.h>
-#include "OpenGLWindow.h"
+
 #include <QtCore\qdebug.h>
-#include <QtGui\qopenglframebufferobject.h>
-#include <CL\cl_gl.h>
+
 #include <Objects\Triangle.h>
 #include <assimp\Importer.hpp>
 #include <assimp\scene.h>
@@ -57,14 +55,37 @@ public:
 	bool isReflectionsEnabled()const;
 	bool isRefractionsEnabled()const;
 	vector<Light> lights;
-	void changeLightType(int index);
 	void changeLightType(QString index);
 
 
 //	void initialize()override;
 //	void render()override;
+	int samples;
+	int numberOfReflections;
+	int numberOfRefractions;
+
+	bool softShadowsEnabled();
+	void setSoftShadows(bool enabled);
+
+
+	bool globalIlluminationEnabled();
+	void setGlobalIllumination(bool enabled);
+	int sampleSquared;
+	Camera camera;
+
+
+	public  slots:
+	void changeLightType(int index);
+	void changeCameraType(int index);
+
 
 private:
+
+	int randomInt;
+	bool initialized;
+
+
+	
 
 	//Grid functions
 	void calculateVoxelSize();
@@ -87,8 +108,6 @@ private:
 	float fps;
 	float interval;
 
-	int samples;
-	int sampleSquared;
 	void addMesh(std::string filePath, glm::vec3 position = glm::vec3(0.0f,0.0f,10.0f));
 	
 
@@ -97,7 +116,6 @@ private:
 //	void createFrameBuffer();
 	std::vector<Triangle> triangles;
 
-	Camera camera;
 	
 	void updateDrawScene();
 	void updateBBox();
@@ -109,7 +127,6 @@ private:
 	static const cl_uint flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType;
 		
 	cl_int  numCells, nextPowerOfCells, numberOfCellObjects;
-	cl_int numberOfReflections;
 	const cl_float multi;
 	QImage readImage;
 
@@ -184,16 +201,21 @@ private:
 	cl_kernel drawReflectionRaysKernel;
 	cl_kernel drawRefractionRaysKernel;
 	cl_kernel findObjectCellsKernel;
+	cl_kernel emitPhotonKernel;
+	cl_kernel clearPhotonKernel;
 
 
 	void drawSecondaryRays();
 
-	bool shadowsEnabled;
-	bool reflectionsEnabled;
-	bool refractionsEnabled;
+	cl_uint shadowsEnabled;
+	cl_uint reflectionsEnabled;
+	cl_uint refractionsEnabled;
+	cl_uint softShadows;
+	cl_uint globalIllumination;
 
 	//update release mem
 	cl_mem objectIndicesMem;
+	cl_mem objectPhotonCount;
 	cl_mem cellIndicesMem;
 	cl_mem cellIncrementsMem;
 	cl_mem clImage;
@@ -269,7 +291,7 @@ private:
 public slots:
 	void updateScene();
 private slots:
-	void openFile();
+	//void openFile();
 	
 };
 

@@ -16,11 +16,12 @@
 #include <QtWidgets\qlabel.h>
 #include <QtWidgets\qtabwidget.h>
 #include "UI\FloatSlider.h"
+#include "UI\IntSlider.h"
 #include "UI\Float3Slider.h"
 #include <QtWidgets\qcombobox.h>
 class MainWindow : public QMainWindow
 {
-	//Q_OBJECT
+	Q_OBJECT
 public:
 	MainWindow(RenderWindow * render);
 	~MainWindow(void);
@@ -29,7 +30,6 @@ public:
 
 private:
 	QWidget * mainWidget;
-	QWidget * featuresWidget;
 	RenderWindow * renderer;
 	QMenu * fileMenu;
 	QMenu * viewMenu;
@@ -41,6 +41,8 @@ private:
 	//QCheckBox * enableReflections;
 	//QCheckBox * enableRefractions;
 	QComboBox * lightSelection;
+	QComboBox * optimizationSelection;
+	QComboBox * sampleType;
 	FloatSlider * pointLightRadius;
 	FloatSlider * specularPower;
 	Float3Slider * direction;
@@ -48,10 +50,25 @@ private:
 	Float3Slider * ambient;
 	Float3Slider * diffuse;
 	Float3Slider * specular;
+	Float3Slider * cameraLookAt;
+	FloatSlider * cameraDistance;
+	FloatSlider * cameraFocalDistance;
+	FloatSlider * cameraRadius;
+	QComboBox * cameraChoice;
+
+	IntSlider * sampling;
+	QCheckBox * softShadows;
+	IntSlider * numberOfRefractions;
+	IntSlider * numberOfReflections;
+
+
+
 	float radius;
 	QTimer updateTimer;
 
-//private slots:
+private slots:
+	void changeLightType(int);
+	void changeCameraType(int);
 private:
 	void addObject();
 	void addSphere();

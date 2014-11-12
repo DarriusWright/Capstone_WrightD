@@ -7,7 +7,6 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 	mainWidget = new QWidget();
 	QHBoxLayout * mainLayout = new QHBoxLayout();
 	QVBoxLayout * tabLayout = new QVBoxLayout();
-	radius = 20;
 	pointLightRadius = new FloatSlider("Radius",0.0f, 100.0f,&renderer->lights[0].direction.s[3],1000.0f);
 	direction = new Float3Slider("Direction", glm::vec3(-1.0f), glm::vec3(1.0f), &renderer->lights[0].direction.s[0],glm::vec3(20.0f));
 	position = new Float3Slider("Position", glm::vec3(-50.0f), glm::vec3(50.0f), &renderer->lights[0].position.s[0],glm::vec3(1000.0f));
@@ -15,16 +14,65 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 	diffuse = new Float3Slider("Diffuse", glm::vec3(0.0f), glm::vec3(1.0f), &renderer->lights[0].material.diffuse.s[0], glm::vec3(100.0f));
 	specular = new Float3Slider("Specular", glm::vec3(0.0f), glm::vec3(1.0f), &renderer->lights[0].material.specular.s[0], glm::vec3(100.0f));
 	specularPower = new FloatSlider("Specular Power", 0.0f,200.0f, &renderer->lights[0].material.specular.s[3], 1000.0f);
+	sampling = new IntSlider("Samples Squared", 1, 6, &renderer->sampleSquared);
+	cameraLookAt = new Float3Slider("Look At", glm::vec3(-10.0f), glm::vec3(10.0f), &renderer->camera.lookAt[0],glm::vec3(200.0f));
+	cameraDistance = new FloatSlider("Distance", 0.0f, 2000.0f,&renderer->camera.distance, 10000.0f);
+	cameraFocalDistance = new FloatSlider("Focal Distance", 0.0f, 2000.0f,&renderer->camera.focalDistance, 10000.0f);
+	cameraRadius  = new FloatSlider("Radius", 0.0f, 1.0f,&renderer->camera.position[3], 10.0f);
+
+	softShadows =  new QCheckBox("Soft Shadows");
+	numberOfReflections = new IntSlider("Number Of Reflections",1, 10, &renderer->numberOfReflections);
+	numberOfRefractions = new IntSlider("Number Of Refractions",1, 10, &renderer->numberOfRefractions);
+
+	connect(sampling,&IntSlider::valueChanged,renderer,&RenderWindow::setSamples);
 
 	lightSelection = new QComboBox();
 	lightSelection->addItem("Directional");
 	lightSelection->addItem("PointLight");
 
+	connect(lightSelection, SIGNAL(currentIndexChanged(int)), this,SLOT(changeLightType(int)));
+
+
+	cameraChoice = new QComboBox();
+	cameraChoice->addItem("Pinhole");
+	cameraChoice->addItem("Thinlens");
+	cameraChoice->addItem("Fisheye");
+	cameraChoice->addItem("Spherical");
+	cameraChoice->addItem("Stereo");
+	
+	connect(cameraChoice,  SIGNAL(currentIndexChanged(int)), this,SLOT(changeCameraType(int)));
+
+
+	optimizationSelection  = new QComboBox();
+	optimizationSelection->addItem("Grid");
+	optimizationSelection->addItem("Octree");
+
 	QTabWidget * tabs = new QTabWidget();
 	tabs->setTabShape(QTabWidget::TabShape::Triangular);
 	tabLayout->addWidget(tabs);
 	QWidget * lightsWidget = new QWidget();
+	QWidget * rayWidget = new QWidget();
+	QWidget * cameraWidget = new QWidget();
+	QWidget * optimizationWidget = new QWidget();
+
 	QVBoxLayout * lightLayout = new QVBoxLayout();
+	QVBoxLayout * rayLayout = new QVBoxLayout();
+	QVBoxLayout * cameraLayout = new QVBoxLayout();
+	QVBoxLayout * optimizationLayout = new QVBoxLayout();
+
+	rayWidget->setLayout(rayLayout);
+	rayLayout->addWidget(sampling);
+	rayLayout->addWidget(softShadows);
+	rayLayout->addWidget(numberOfReflections);
+	rayLayout->addWidget(numberOfRefractions);
+
+	cameraWidget->setLayout(cameraLayout);
+	cameraLayout->addWidget(cameraChoice);
+	cameraLayout->addWidget(cameraLookAt);
+	cameraLayout->addWidget(cameraDistance);
+	cameraLayout->addWidget(cameraFocalDistance);
+	cameraLayout->addWidget(cameraRadius);
+
 	lightLayout->addWidget(lightSelection);
 	lightLayout->addWidget(direction);
 	lightLayout->addWidget(position );
@@ -34,10 +82,22 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 	lightLayout->addWidget(specular);
 	lightLayout->addWidget(specularPower);
 
+
+	optimizationWidget->setLayout(optimizationLayout);
+	optimizationLayout->addWidget(optimizationSelection);
+
 	lightsWidget->setLayout(lightLayout);
 	lightsWidget->setMinimumWidth(450);
+	tabs->addTab(cameraWidget, "Camera");
 	tabs->addTab(lightsWidget, "Light");
+	tabs->addTab(optimizationWidget, "Optimization");
+	tabs->addTab(rayWidget, "Ray");
 	mainLayout->addLayout(tabLayout);
+
+	rayLayout->setContentsMargins(0,0,0,0);
+	rayLayout->setSpacing(0);
+	rayLayout->setMargin(0);
+
 
 	lightLayout->setContentsMargins(0,0,0,0);
 	lightLayout->setSpacing(0);
@@ -57,14 +117,17 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 	addMenus();
 	connect(&updateTimer,&QTimer::timeout,this, &MainWindow::updateWindow);
 	//connect(lightSelection, &QComboBox::currentIndexChanged,renderer,  &RenderWindow::changeLightType);
-	
+
 	//lightSelection->currentIndexChanged.connect(renderer->changeLightType);
-	
+
 	//connect(enableShadows, &QCheckBox::stateChanged, renderer, &RenderWindow::setShadowsEnabled);
 	//connect(enableReflections, &QCheckBox::stateChanged, renderer, &RenderWindow::setReflectionsEnabled);
 	//connect(enableRefractions, &QCheckBox::stateChanged, renderer, &RenderWindow::setRefractionsEnabled);
 
 	updateTimer.start();
+
+	changeLightType(renderer->lights[0].type);
+	changeCameraType(renderer->camera.type);
 }
 
 
@@ -72,6 +135,55 @@ MainWindow::~MainWindow(void)
 {
 }
 
+
+void MainWindow::changeLightType(int index)
+{
+	LightType type = (LightType)index;
+	lightSelection->setCurrentIndex(index);
+
+	position->setVisible(false);
+	direction->setVisible(false);
+	pointLightRadius->setVisible(false);
+
+
+	switch (type)
+	{
+	case LightType::DIRECTIONAL_TYPE:
+		direction->setVisible(true);
+		
+		break;
+	case LightType::POINT_TYPE:
+		position->setVisible(true);
+		pointLightRadius->setVisible(true);
+		break;
+	}
+
+
+	renderer->changeLightType(index);
+
+}
+void MainWindow::changeCameraType(int index)
+{
+	CameraType type = (CameraType)index;
+
+	//cameraDistance->setVisible(false);
+	//cameraLookAt->setVisible(false);
+
+	switch (type)
+	{
+	case CameraType::Pinhole:
+		break;
+	case CameraType::FishEye:
+		break;
+	case CameraType::Spherical:
+		break;
+	case CameraType::Stero:
+		break;
+	case CameraType::Thinlens:
+		break;
+	}
+	renderer->changeCameraType(index);
+}
 
 QAction * MainWindow::addAction(const char * title, int shortCut)
 {
@@ -86,6 +198,9 @@ void MainWindow::addMenu(const char * title,QAction * action)
 }
 void MainWindow::addMenus()
 {
+
+
+
 	fileMenu = menuBar()->addMenu(tr("&File"));
 	viewMenu = menuBar()->addMenu(tr("&View"));
 	QAction * addObject = addAction("&Add Object");
@@ -96,6 +211,7 @@ void MainWindow::addMenus()
 	connect(addSphere,&QAction::triggered,this,&MainWindow::addSphere);
 	fileMenu->addAction(addSphere);
 
+	QAction * enabledGlobalIllumination = addAction("&Global Illumination");
 	QAction * enabledShadows = addAction("&Shadows");
 	QAction * enabledReflections = addAction("&Reflections");
 	QAction * enabledRefractions = addAction("&Refractions");
@@ -103,21 +219,24 @@ void MainWindow::addMenus()
 	enabledShadows->setCheckable(true);
 	enabledReflections->setCheckable(true);
 	enabledRefractions->setCheckable(true);
+	enabledGlobalIllumination->setCheckable(true);
 	enabledShadows->setChecked(renderer->isShadowsEnabled());
 	enabledReflections->setChecked(renderer->isReflectionsEnabled());
 	enabledRefractions->setChecked(renderer->isRefractionsEnabled());
+	enabledGlobalIllumination->setChecked(renderer->globalIlluminationEnabled());
+
+	connect(enabledGlobalIllumination,&QAction::triggered,renderer,&RenderWindow::setGlobalIllumination);
+	viewMenu->addAction(enabledGlobalIllumination);
+
 
 	connect(enabledShadows,&QAction::triggered,renderer,&RenderWindow::setShadowsEnabled);
 	viewMenu->addAction(enabledShadows);
-	enabledShadows->setCheckable(true);
 
-	enabledReflections->setCheckable(true);
 	connect(enabledReflections,&QAction::toggled,renderer,&RenderWindow::setReflectionsEnabled);
 	viewMenu->addAction(enabledReflections);
 
 	connect(enabledRefractions,&QAction::toggled,renderer,&RenderWindow::setRefractionsEnabled);
 	viewMenu->addAction(enabledRefractions);
-	enabledRefractions->setCheckable(true);
 
 
 
@@ -155,7 +274,13 @@ void MainWindow::updateWindow()
 	diffuse->update();
 	specular->update();
 	specularPower->update();
-
+	cameraLookAt->update();
+	cameraDistance->update();
+	cameraRadius->update();
+	cameraFocalDistance->update();
+	//sampling->update();
+	//numberOfReflections->update();
+	//numberOfRefractions->update();
 	setWindowTitle( "Time : " + QString::number(renderer->getInterval()) + "\tFrames : "+ QString::number(renderer->getFPS()));
 
 }

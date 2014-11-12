@@ -42,13 +42,13 @@
     <ClInclude Include="ExportHeader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Timer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Objects\Triangle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Exception\OpenCLExceptions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

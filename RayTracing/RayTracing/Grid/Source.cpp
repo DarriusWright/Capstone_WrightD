@@ -1,4 +1,4 @@
-
+//
 
 #define _CRT_SECURE_NO_WARNINGS
 //list all opencl programs here
@@ -25,13 +25,14 @@
 #include <iostream>
 #include <ctime>
 #include "MainWindow.h"
+#include "CudaWidget.h"
 using std::cout;
 using std::endl;
 
 int main(int argc, char * argv []) 
 {
 	//srand(65776);
-	srand(1231239);
+	srand(12239);
 	QApplication app(argc,argv);
 	
 	RenderWindow * renderwindow = new RenderWindow();

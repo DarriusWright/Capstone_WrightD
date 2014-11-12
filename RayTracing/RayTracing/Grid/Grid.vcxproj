@@ -31,6 +31,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 6.0.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -79,6 +80,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CudaWidget.cu" />
+    <ClCompile Include="MainWindow_moc.cpp" />
+    <ClCompile Include="UI\IntSlider_moc.cpp" />
+    <ClCompile Include="UI\UIWidget.cpp" />
+    <ClCompile Include="UI\IntSlider.cpp" />
     <ClCompile Include="UI\Float3Slider.cpp" />
     <ClCompile Include="UI\FloatSlider.cpp" />
     <ClCompile Include="MainWindow.cpp" />
@@ -90,6 +96,10 @@
     <ClCompile Include="TriangleWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CudaWidget.h" />
+    <ClInclude Include="helper_math.h" />
+    <ClInclude Include="UI\UIWidget.h" />
+    <ClInclude Include="UI\IntSlider.h" />
     <ClInclude Include="UI\Float3Slider.h" />
     <ClInclude Include="UI\FloatSlider.h" />
     <ClInclude Include="MainWindow.h" />
@@ -97,7 +107,11 @@
     <ClInclude Include="RenderWindow.h" />
     <ClInclude Include="TriangleWindow.h" />
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="RayTracing.cu" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 6.0.targets" />
   </ImportGroup>
 </Project>
