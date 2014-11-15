@@ -18,7 +18,7 @@ const cl_uint RenderWindow::NUMBER_OF_SPHERES = 1;
 
 RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance()), shadowsEnabled(false), 
 	numberOfReflections(1), reflectionsEnabled(false), refractionsEnabled(false) , numberOfRefractions(1),
-	softShadows(false) , globalIllumination(false), randomInt(4356432), initialized(false)
+	softShadows(false) , globalIllumination(false), randomInt(4356432), initialized(false) , maxDepth(5),backgroundColor(0,0,0,1)
 {
 	camera.type = CameraType::Thinlens;
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
@@ -193,7 +193,8 @@ void RenderWindow::addMesh(std::string fileName, glm::vec3 position)
 
 	Material material = {{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
 	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
-	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f};
+	//{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f, (MaterialType)(rand()%3)};
+	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f, DIFFUSE};
 
 	//glm::vec3 position(0,0,10);
 	for (UINT i = 0; i < modelIndices.size(); i+=3)
@@ -290,15 +291,15 @@ void RenderWindow::construct()
 	setMinimumSize(640,480);
 
 	layout = new QHBoxLayout();
-	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {-10.0f,-5.0f,10.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::POINT_TYPE };
+	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {-4.0f,1.0f,10.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::POINT_TYPE };
 	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f));
 	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
 	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f));
-
-	addMesh("shadowPlane.obj", glm::vec3(-4.0f,1.0f,12.0f));
+	
+	//addMesh("shadowPlane.obj", glm::vec3(-4.0f,1.0f,12.0f));
 	addMesh("basicCube.obj", glm::vec3(0.0f,2.0f,9.0f));
 	//addMesh("Box.obj", glm::vec3(0.0f,2.0f,9.0f));
-	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f));
+	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f));
 
 	//Random random = Random::getInstance();
 	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
@@ -411,7 +412,8 @@ void RenderWindow::updateScene()
 
 	//updateBBox();
 	//updateCells();
-	
+	randomInt = time;
+
 	updateDrawScene();
 
 
@@ -749,7 +751,7 @@ void RenderWindow::handleKeyInput()
 }
 void RenderWindow::initializeProgram()
 {
-	std::string files []  = { "Kernels/kernelHelperFunctions.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl", "Kernels/drawScene.opencl", "Kernels/photonMapping.opencl"};
+	std::string files []  = { "Kernels/kernelHelperFunctions.opencl","Kernels/drawScene.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl",  "Kernels/photonMapping.opencl"};
 	program = buildProgram(files, 6);
 	drawSceneKernel = clCreateKernel(program, "drawScene", &err);
 	drawShadowRaysKernel = clCreateKernel(program, "drawShadowRays", &err);
@@ -1052,6 +1054,9 @@ void RenderWindow::initializeCL()
 
 void RenderWindow::setUpDrawSceneArgs()
 {
+
+	
+
 	err |= clSetKernelArg(drawSceneKernel,0 , sizeof(cl_mem), &clImage);
 	err |= clSetKernelArg(drawSceneKernel,1 , sizeof(cl_mem), &writeCLImage);
 	err |= clSetKernelArg(drawSceneKernel,2 , sizeof(cl_mem), &depthBuffer);
@@ -1077,9 +1082,11 @@ void RenderWindow::setUpDrawSceneArgs()
 	err |= clSetKernelArg(drawSceneKernel,22 , sizeof(cl_float3) , &numberOfVoxels[0]);
 	err |= clSetKernelArg(drawSceneKernel,23 , sizeof(cl_float3) , &voxelWidth[0]);
 	err |= clSetKernelArg(drawSceneKernel,24 , sizeof(cl_int) , &randomInt);
-	err |= clSetKernelArg(drawSceneKernel,25 , sizeof(cl_int) , &shadowsEnabled);
-	err |= clSetKernelArg(drawSceneKernel,26 , sizeof(cl_int) , &reflectionsEnabled);
-	err |= clSetKernelArg(drawSceneKernel,27 , sizeof(cl_int) , &refractionsEnabled);
+	err |= clSetKernelArg(drawSceneKernel,25 , sizeof(cl_int) , &maxDepth);
+	err |= clSetKernelArg(drawSceneKernel,26 , sizeof(cl_int) , &shadowsEnabled);
+	err |= clSetKernelArg(drawSceneKernel,27 , sizeof(cl_int) , &reflectionsEnabled);
+	err |= clSetKernelArg(drawSceneKernel,28 , sizeof(cl_int) , &refractionsEnabled);
+	err |= clSetKernelArg(drawSceneKernel, 29, sizeof(cl_float4), &backgroundColor);
 
 }
 

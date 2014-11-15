@@ -5,6 +5,14 @@
 #include <CL/cl.h>
 #endif
 
+
+enum MaterialType
+{
+	DIFFUSE,
+	SPECULAR,
+	MIRROR
+};
+
 typedef struct 
 {
 	cl_float4 ambient;
@@ -12,5 +20,6 @@ typedef struct
 	cl_float4 specular;
 	float reflection;
 	float refraction;
-	float d[2];
+	MaterialType type;
+	float d[1];
 }Material;

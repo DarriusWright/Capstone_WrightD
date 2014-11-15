@@ -1,224 +1,318 @@
-typedef struct
+float4 radiance(Ray ray, int seed, int maxDepth, int width, 
+	int height, __global Object * objects, __global Triangle * triangles, 
+	__global Light * light, BBox box,__global int * cells, 
+	float3 cellDimensions,__global int * cellIndices, __global int * objectIndices,
+	Camera camera, int samples, int samplesSquared , float3 delta, float3 deltaInv, 
+	float3 voxelInvWidth, float3 numberOfVoxels ,float3 voxelWidth ,
+	__local float3 * levelColor, __local int * oIndices , __local float3 * emissions)
 {
-	float3 nextCrossing;
-	float3 deltaT;
-	int3 nextStep;
-	int3 out;
-}StepInfo;
+	//default depth to 0
+	int depth = 0;
+	// initialize color to black
+	float3 color = (float3)(0,0,0);
 
-StepInfo findStepInfo(int3 currentCell,Ray ray, float minVal, 
-	float maxVal,float3 voxelWidth,BBox box, float3 numberOfVoxels)
-{
-	
-	float3 nextCrossing;
-	float3 deltaT;
-	int3 nextStep;
-	int3 out;
+	//float3 radiance = (float3)(0,0,0);
 
-	float3 voxelPositionPos =  voxelToPosition(box, currentCell + 1,voxelWidth.xyz);
-	float3 voxelPositionNeg =  voxelToPosition(box, currentCell,voxelWidth.xyz);
-	float3 intersectionPoint = ray.origin + ray.direction * minVal;
-
-	if(ray.direction.x >= 0)
+	//does the ray hit the scene bounding box?
+	HitReturn hitCheck = hitBBox(ray,box.min,box.max);
+	if(hitCheck.hit)
 	{
-		nextCrossing.x = minVal + (voxelPositionPos.x - intersectionPoint.x) / ray.direction.x;
-		deltaT.x = voxelWidth.x/ ray.direction.x;
-		nextStep.x = 1;
-		out.x = numberOfVoxels.x;
-
-	}
-	else
-	{
-		nextCrossing.x = minVal + (voxelPositionNeg.x - intersectionPoint.x) / ray.direction.x;
-		deltaT.x= -voxelWidth.x/ ray.direction.x;
-		nextStep.x = -1;
-		out.x = -1;
-	}
-
-
-	if(ray.direction.y >= 0)
-	{
-		nextCrossing.y = minVal + (voxelPositionPos.y - intersectionPoint.y) / ray.direction.y;
-		deltaT.y = voxelWidth.y/ ray.direction.y;
-		nextStep.y = 1;
-		out.y = numberOfVoxels.y;
-
-	}
-	else
-	{
-		nextCrossing.y = minVal + (voxelPositionNeg.y- intersectionPoint.y) / ray.direction.y;
-		deltaT.y= -voxelWidth.y/ ray.direction.y;
-		nextStep.y = -1;
-		out.y= -1;
-	}
-
-	if(ray.direction.z >= 0)
-	{
-		nextCrossing.z = minVal + (voxelPositionPos.z- intersectionPoint.z) / ray.direction.z;
-		deltaT.z = voxelWidth.z/ ray.direction.z;
-		nextStep.z = 1;
-		out.z = numberOfVoxels.z;
-
-	}
-	else
-	{
-		nextCrossing.z = minVal + (voxelPositionNeg.z - intersectionPoint.z) / ray.direction.z;
-		deltaT.z= -voxelWidth.z/ ray.direction.z;
-		nextStep.z = -1;
-		out.z = -1;
-	}
-
-	StepInfo s;
-	s.nextCrossing= nextCrossing;
-	s.deltaT = deltaT;
-	s.nextStep = nextStep;
-	s.out = out;
-
-	return s;	
-}
-
-typedef struct
-{
-	StepInfo stepInfo;
-	int3 currentCell;
-	bool continueStep;
-
-}StepReturn;
-
-uint3 mixUIntColor(uint3 leftColor, uint3 rightColor)
-{
-	float3 colorf = convert_float3(leftColor.xyz) / 255.0f;
-	float3 colorf2 = convert_float3(rightColor.xyz) / 255.0f;
-	float3 finalColor = (colorf * colorf2) * 255.0f;
-
-	return convert_uint3(finalColor);
-}
-
-
-StepReturn stepThroughGrid(StepInfo s, int3 currentCell, float maxVal)
-{
-
-	bool run = true;
-
-	int stepAxis =  (s.nextCrossing.x  < s.nextCrossing.y && s.nextCrossing.x < s.nextCrossing.z) ? 0 :(s.nextCrossing.y < s.nextCrossing.z) ? 1 : 2;
-
-
-
-	if(stepAxis == 0)
-	{
-
-
-			if(maxVal < s.nextCrossing.x) 
-			{
-				run = false;
-			}
-			currentCell.x += s.nextStep.x;
-
-	
-
-			//if((ray.direction.x >= 0) ?  out.x <= currentCell.x : out.x >= currentCell.x)
-			if( s.out.x == currentCell.x)
-			{
-				run = false;
-
-			}
+		//find the current cell and the current cell index 
+		int cellIndex;
+		float minVal = 0.0f;
+		float maxVal = 0.0f;
+		int3 currentCell;
 		
-			s.nextCrossing.x += s.deltaT.x;
+		if(!insideBBox(ray.origin.xyz,box.min,box.max ))
+		{
+			float3 p = ray.origin.xyz + (hitCheck.minValue * ray.direction.xyz);
+			minVal = hitCheck.minValue;
+			maxVal = hitCheck.maxValue;
+		    currentCell = (int3)(convert_int3(clamp((p - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), cellDimensions - 1.0f)));
+		}
+		else
+		{
+			currentCell = (int3)(convert_int3(clamp((ray.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
+			maxVal = hitCheck.maxValue;
 
+		}	
+		cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
 		
-	
-	}
+		//find the inttersection in the scene
+		IntersectionInfo intersect  = rayTrace(ray, camera,cellIndices, objectIndices,light,
+				objects, triangles, cellIndex, currentCell, box,voxelWidth,numberOfVoxels);
 
+		// if there is no intersection return black
+		if(intersect.distance == -1) return (float4)(0,0,0,1);
+		
 
-	if(stepAxis == 1)
-	{
-
-			if(maxVal < s.nextCrossing.y)
-			{
-				run = false;
-			}
-
-			currentCell.y += s.nextStep.y;
-			//if((ray.direction.y >= 0) ?  out.y <= currentCell.y : out.y >= currentCell.y)
-			if( s.out.y == currentCell.y)
-			{
-				run = false;
-			}
-			s.nextCrossing.y += s.deltaT.y;
-
-	}
-
-
-	if(stepAxis == 2)
-	{
-
-			if(maxVal < s.nextCrossing.z)
-			{
-				run = false;
-			}
-
-			currentCell.z += s.nextStep.z;
+		//get the objects information
+		//find the normal of the object 
+		float3 normal =  triangles[objects[intersect.objectIndex].triangleIndex].normal;
+		//is it inside the object, if so inverse the normal
+		float3 orientedNormal = dot(normal, ray.direction) < 0 ? normal : normal*-1;
+		float3 objectColor = objects[intersect.objectIndex].material.diffuse.xyz;
+		Object object = objects[intersect.objectIndex];
+		//emission of the light 
+		float3 emission = (float3)(400,400,400); // this is temporary...
+		
+		//as long as the depth has not reached the max continue 
+		while(depth < maxDepth)
+		{
+			depth++; // first increment the depth
+			float p = max(max(objectColor.x,objectColor.y), objectColor.z); // find the max color
 			
-			//if(out.z >= currentCell.z)
-			if(s.out.z == currentCell.z)
+			int colorIndex = maxDepth - depth;
+			// russian roulette
+			if(depth > 5 || !p) 
 			{
-				run = false;
+				if(randFloat(seed + depth) < p) 
+				{
+					objectColor *=(1/p);
+				}
+				else
+				{
+					levelColor[colorIndex] = (float3)(0,0,0); //have objects support irradance;
+					oIndices[colorIndex] = intersect.objectIndex; 
+					continue;
+				}
 			}
-			s.nextCrossing.z += s.deltaT.z;
-		
+			//diffuse?
+			if(objects[intersect.objectIndex].material.type == DIFFUSE)
+			{
+				seed += depth;
+				float r1 = 2 * PI * randFloat(seed); // random angle 
+				seed += depth;
+				float r2 = randFloat(seed + cellIndex); // random distance 
+				float r2s = sqrt(r2);
+				float3 w = orientedNormal;
+				float3 u =normalize(cross((absF(w.x) > .1 ? (float3)(0,1,0) : (float3)(1,0,0)),w));
+				float3 v = cross(w,u);
+				float3 direction = normalize(u * cos(r1) * r2s  + v * sin(r1) * r2s + w * sqrt(1 -r2));
+				
+				float3 e = (float3)(0,0,0);
+				float3 sw = light[0].position.xyz - intersect.position;
+				float3 su = normalize(cross(absF(sw.x) > .1 ? (float3)(0,1,0) : (float3)(1,0,0),sw));
+				float3 sv = cross(sw,su);
+				float cos_a_max =sqrt(1 -  light[0].direction.w * light[0].direction.w/dot((intersect.position - light[0].position),(intersect.position - light[0].position) ) );
+				float eps1 = randFloat(seed);
+				float eps2 = randFloat(seed + seed);
+				float cos_a = 1 - eps1 + eps1 * cos_a_max;
+				float sin_a = sqrt(1 - cos_a * cos_a);
+				float  phi = 2 * PI * eps2;
+				float3 lightVector = -su * cos(phi) * sin_a + -sv * sin(phi) * sin_a + sw * cos_a;
+				lightVector = normalize(lightVector);
+
+				Ray shadowRay;
+				shadowRay.origin = intersect.position;
+				shadowRay.direction = lightVector;
+
+				int objectIndex = intersect.objectIndex;
+
+				IntersectionInfo shadowIntersection = rayTrace(shadowRay, camera,cellIndices, objectIndices,light,
+				objects, triangles, cellIndex, currentCell, box,voxelWidth,numberOfVoxels);
+
+				if(shadowIntersection.distance != -1.0f && objectIndex == shadowIntersection.objectIndex)
+				{
+					float omega = 2.0f * PI * (1.0f - cos_a_max);
+					e =  objectColor * (emission * dot(lightVector, orientedNormal) * omega) * PI_1 ;
+				}
+
+
+				ray.origin.xyz = intersect.position.xyz;
+				ray.direction = direction;
+				seed += seed;
+
+				emissions[colorIndex] = e;
+				oIndices[colorIndex] = intersect.objectIndex;
+				levelColor[colorIndex] = objectColor;
+				//return e + objectColor * (emission * dot(lightVector, orientedNormal) );
+				intersect  = rayTrace(ray, camera,cellIndices, objectIndices,light,
+				objects, triangles, cellIndex, currentCell, box,voxelWidth,numberOfVoxels);
+				
+
+				//return (float4)(objectColor,1);
+				if(intersect.distance == -1) break;
+				continue;
+			}
+			else if(objects[intersect.objectIndex].material.type == SPECULAR)
+			{
+
+				ray.origin = intersect.position;
+				ray.direction = ray.direction - normal * 2.0f * dot(normal,ray.direction);
+				
+				oIndices[maxDepth - depth] = intersect.objectIndex;
+				levelColor[maxDepth - depth] = (float3)(0,0,0);// e + objectColor * (emission * dot(lightVector, orientedNormal) );
+				continue;
+			}
+
+
+
+			break;
+		}
+	
 	}
 
+	//for(
+	if(depth > 0)
+	{
+		for(int i = maxDepth - depth; i < maxDepth; i++)
+		{
+			float3 objectColor = objects[oIndices[i]].material.diffuse.xyz;
+			color += emissions[i] +(color + levelColor[i]);
+			//float3 obColor = objects[oIndices[maxDepth - 1]].material.diffuse.xyz;
+			//color = obColor;
+		}
+	}
+	
+	return (float4)(color,1);
+}
 
-	StepReturn retS;
-	retS.stepInfo = s;
-	retS.continueStep = run;
-	retS.currentCell = currentCell;
+float random(float3 scale, float seed,float3 imageCoord) {	
+	float randomNum =sin(dot(imageCoord.xyz + seed, scale)) * 43758.5453f + seed; 
+	return randomNum - (int)randomNum;	
+}	
 
-	return retS;
+
+//gives a uniform random direction vector
+float3 uniformlyRandomDirection(float seed,float3 imageCoord) {		
+	float u = random((float3)(12.9898, 78.233, 151.7182), seed, imageCoord);		
+	float v = random((float3)(63.7264, 10.873, 623.6736), seed, imageCoord);		
+	float z = 1.0 - 2.0 * u;		
+	float r = sqrt(1.0 - z * z);	
+	float angle = 6.283185307179586 * v;	
+	return (float3)(r * cos(angle), r * sin(angle), z);	
+}	
+
+//returns a uniformly random vector
+float3 uniformlyRandomVector(float seed, float3 imageCoord) 
+{		
+	return uniformlyRandomDirection(seed, imageCoord) *  (random((float3)(36.7539, 50.3658, 306.2759), seed,imageCoord));	
 }
 
 
-
-void raytrace()
+float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor,int MAX_BOUNCES, BBox box, int seed,  int width, 
+	int height, __global Object * objects, __global Triangle * triangles, 
+	__global int * cells, float3 cellDimensions,__global int * cellIndices, __global int * objectIndices,
+	Camera camera, float3 delta, float3 deltaInv, float3 voxelInvWidth, float3 numberOfVoxels ,
+	float3 voxelWidth , float3 imageCoord , float3 lightVector)
 {
+	float3 mask = (float3)(1,1,1);
+	float3 colorSum = (float3)(0,0,0);
+	float3 surfaceColor = backgroundColor.xyz;
+
+	float diffuse = 1;
+
+	for(int bounce = 0; bounce < MAX_BOUNCES; bounce++)
+	{
+		HitReturn hitRet = hitBox(ray,box);
+
+		if(hitRet.minValue > hitRet.maxValue)
+			continue;
+		if(hitRet.maxValue < t)
+			t = hitRet.maxValue + 1;
+
+		
+		//float4 val = (float4)(t,0,0,0); 
+
+		int cellIndex;
+		float minVal = 0.0f;
+		float maxVal = 0.0f;
+		int3 currentCell;
+		
+		if(!insideBBox(ray.origin.xyz,box.min,box.max ))
+		{
+			float3 p = ray.origin.xyz + (hitRet.minValue * ray.direction.xyz);
+			minVal = hitRet.minValue;
+			maxVal = hitRet.maxValue;
+		    currentCell = (int3)(convert_int3(clamp((p - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), cellDimensions - 1.0f)));
+		}
+		else
+		{
+			currentCell = (int3)(convert_int3(clamp((ray.origin.xyz - box.min) * cellDimensions/ (box.max- box.min),(float3)(0,0,0), convert_float3(cellDimensions) - 1.0f)));
+			maxVal = hitRet.maxValue;
+
+		}	
+		cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
+		
+		float3 normal;
+
+		//find the inttersection in the scene
+		IntersectionInfo intersect  = rayTrace(ray, camera,cellIndices, objectIndices,light,
+				objects, triangles, cellIndex, currentCell, box,voxelWidth,numberOfVoxels);
+		
+		if(intersect.distance == -1) break;
+
+		normal = triangles[objects[intersect.objectIndex].triangleIndex].normal;
+
+		if(intersect.distance < t)
+		{
+			surfaceColor = objects[intersect.objectIndex].material.diffuse.xyz;
+			float3 hit = intersect.position;
+			ray.origin = hit;
+			ray.direction = uniformlyRandomDirection(seed + (float)(bounce), imageCoord);
+			float3 jitteredLight = lightVector + ray.direction;
+			float3 L = normalize(jitteredLight - hit);
+			diffuse = max(0.0f, dot(L,normal));
+			mask *= surfaceColor;
+
+			Ray shadowRay;
+			shadowRay.direction = L;
+			shadowRay.origin = hit;
+
+			IntersectionInfo shadowIntersect  = rayTrace(shadowRay, camera,cellIndices, objectIndices,light,
+			objects, triangles, cellIndex, currentCell, box,voxelWidth,numberOfVoxels);
+	
+
+			float shadowMult = shadowIntersect.distance == -1.0f ? 1.0f : 0.5f;
+
+			colorSum  += mask * diffuse * shadowMult;
+			t = intersect.distance;
+
+		}
+
+	}
+
+	return (colorSum == (float3)(0,0,0)) ? surfaceColor * diffuse : colorSum / (float)(MAX_BOUNCES-1);
+
 
 }
-
-float3 radiance(Ray ray,int depth, int seed)
-{
-
-}
-
 
 __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dstImage, __write_only __global float * depthBuffer,
 	sampler_t sampler, int width, int height, __global Object * objects, __global Triangle * triangles, 
 	__global Light * light, int numberOfObjects, int numberOfLights, BBox box,
 	__global int * cells, float3 cellDimensions,
 	__global int * cellIndices, __global int * objectIndices,
-	Camera camera, int samples, int samplesSquared , 
+	Camera camera, int samples, int numberOfSamples , 
 	float3 delta, float3 deltaInv, float3 voxelInvWidth, float3 numberOfVoxels 
-	,float3 voxelWidth, int seed, int shadowsEnabled, int reflectionsEnabled, int refractionsEnabled)
-
+	,float3 voxelWidth, int seed, int MAX_BOUNCES,
+	 int shadowsEnabled, int reflectionsEnabled, int refractionsEnabled,float4 backgroundColor)
 {
+	uint4 outColor;
 	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
-	uint4 outColor = (uint4)(0,0,0,255);
-	float4 color;
-
-	//write_imagef(depthBuffer,outImageCoord,0.0f);
+	float3 imageCoord = (float3)(get_global_id(0),get_global_id(1),1.0f);
+	float4 color =(float4)(0,0,0,1);//backgroundColor;
+	float4 radiantColor = (float4)(0,0,0,0);
+	float inverseSamples = 1.0f ;
 	for(int sy = 0; sy < 2; sy++ )
 	{
 		for(int sx = 0; sx < 2; sx++ )
 		{
-			float3 radiantColor;
-			for(int s = 0; s < samplesSquared; s++)
+			float3 radiantColor = (float3)(0,0,0);
+			
+			for(int sam = 0; sam < numberOfSamples; sam++)
 			{
-				Ray ray= generateRay(outImageCoord, width, height,camera,(int2)(sx,sy), samples, seed);
-
-				radiantColor += radiance(ray,0,seed);
+				Ray ray= generateRay(outImageCoord, width, height,camera,(int2)(sx,sy), numberOfSamples, seed);
+				HitReturn hitRet = hitBox(ray,box);
+				if(hitRet.hit)
+				{
+					float3 lightVector = light[0].position + uniformlyRandomVector(seed , imageCoord);
+					radiantColor += (float4)(pathTrace(ray,light,hitRet.maxValue, backgroundColor,MAX_BOUNCES, box,  seed,   width, 
+	 										height, objects, triangles, cells, cellDimensions,cellIndices, objectIndices,camera,  delta,  
+											 deltaInv, voxelInvWidth,  numberOfVoxels , voxelWidth, imageCoord, lightVector),0.0f) * inverseSamples;
+				}
 			}
-
-			color += clamp(radiance, (float3)(0,0,0), (float)(1,1,1));
-
+			color.xyz += clamp(radiantColor.xyz, (float3)(0,0,0), (float3)(1,1,1)) * 0.25f;
 		}
 	}
 
@@ -228,6 +322,51 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 
 }
 
+
+/*
+__kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dstImage, __write_only __global float * depthBuffer,
+	sampler_t sampler, int width, int height, __global Object * objects, __global Triangle * triangles, 
+	__global Light * light, int numberOfObjects, int numberOfLights, BBox box,
+	__global int * cells, float3 cellDimensions,
+	__global int * cellIndices, __global int * objectIndices,
+	Camera camera, int samples, int samplesSquared , 
+	float3 delta, float3 deltaInv, float3 voxelInvWidth, float3 numberOfVoxels 
+	,float3 voxelWidth, int seed, int maxDepth,__local float3 * emissions, __local float3 * levelColor, __local int * objectIndex,
+	 int shadowsEnabled, int reflectionsEnabled, int refractionsEnabled)
+
+{
+	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
+	uint4 outColor = (uint4)(0,0,0,255);
+	float4 color;
+	color.xyz = (float3)(0,0,0);
+	color.w = 1.0f;
+
+	//write_imagef(depthBuffer,outImageCoord,0.0f);
+	float inverseSamples = 1.0f ;
+	for(int sy = 0; sy < 2; sy++ )
+	{
+		for(int sx = 0; sx < 2; sx++ )
+		{
+			float3 radiantColor = (float3)(0,0,0);
+			int sam = 1;
+			for(int sam = 0; sam < 1; sam++)
+			{
+				Ray ray= generateRay(outImageCoord, width, height,camera,(int2)(sx,sy), samplesSquared, seed);
+				//radiantColor = (float3)(1,1,1);
+				radiantColor = radiance(ray,seed + outImageCoord.x + outImageCoord.y + sam + sx + sy, maxDepth,   width,  height, objects, triangles, light, box,cells, cellDimensions,
+				cellIndices, objectIndices, camera, samples, samplesSquared , delta, deltaInv, voxelInvWidth, numberOfVoxels , voxelWidth, levelColor, objectIndex , emissions).xyz * inverseSamples;
+			}
+
+			color.xyz += clamp(radiantColor, (float3)(0,0,0), (float3)(1,1,1)) * 0.25f;
+		}
+	}
+
+
+	outColor = toRGBA(color);
+	write_imageui(dstImage, outImageCoord, outColor);
+
+}
+*/
 /*
 __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dstImage, __write_only __global float * depthBuffer,
 	sampler_t sampler, int width, int height, __global Object * objects, __global Triangle * triangles, 

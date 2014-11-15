@@ -5,19 +5,6 @@ typedef struct
 	float3 energy;
 }Photon;
 
-typedef struct
-{
-	float3 direction;
-	float3 position;
-	float3 color;
-	float distance;
-	int objectIndex;
-	int type;
-}IntersectionInfo;
-
-__constant int TRIANGLE = 0;
-__constant int SPHERE = 0;
-
 
 float3 randomFloat3(int seed)
 {

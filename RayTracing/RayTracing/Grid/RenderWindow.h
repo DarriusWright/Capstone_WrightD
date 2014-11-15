@@ -27,6 +27,8 @@
 #include <assimp\postprocess.h>
 #include <Helper.h>
 #include <Exception\OpenCLExceptions.h>
+#include <ctime>
+#include <stdio.h>
 
 using std::vector;
 using std::cout;
@@ -80,12 +82,13 @@ public:
 
 
 private:
+	glm::vec4 backgroundColor;
 
 	int randomInt;
 	bool initialized;
 
 
-	
+	int maxDepth;
 
 	//Grid functions
 	void calculateVoxelSize();
