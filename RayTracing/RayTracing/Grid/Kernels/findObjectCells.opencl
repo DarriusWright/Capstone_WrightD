@@ -1,34 +1,15 @@
 __kernel void findObjectCells(__global Object * objects,__global BBox * box,
 	__global int * cells,
  __global int * cellIndices,__global int * objectIndices ,
-	 __global int * cellIndexIncrement , float3 delta, float3 deltaInv, float3 widthInverse , float3 numberOfVoxels)
-/*{
-	int objectIndex = get_global_id(0);	
-	int cellsIndex = get_global_id(1);	
-
-
-	BBox cBox = createCellBox(cellsIndex,numberOfVoxels, delta, box[0]);
-
-	if(bboxObjectCollided(cBox,objects[objectIndex]) )
-	{
-		int currentIndex = (cellsIndex == 0) ?  0 : cellIndices[cellsIndex-1];
-
-		int offsetIndex = currentIndex + (atom_inc(&cellIndexIncrement[cellsIndex]));
-
-		objectIndices[offsetIndex] = objectIndex + 1;	
-			
-		
-		
-	}
-}
-*/
+	 __global int * cellIndexIncrement , float3 delta, float3 deltaInv, float3 widthInverse , float3 numberOfVoxels,
+	 __global Mesh * meshes)
 {
 	int objectIndex = get_global_id(0);	
 
 	BBox oBox = objects[objectIndex].box;
-
-	int3 cellMin = positionToVoxel(oBox.min + objects[objectIndex].position,widthInverse, numberOfVoxels,box[0] );
-	int3 cellMax = positionToVoxel(oBox.max+ objects[objectIndex].position,widthInverse, numberOfVoxels,box[0] );
+	float3 position = meshes[objects[objectIndex].meshIndex].position.xyz;
+	int3 cellMin = positionToVoxel(oBox.min + position,widthInverse, numberOfVoxels,box[0] );
+	int3 cellMax = positionToVoxel(oBox.max+ position,widthInverse, numberOfVoxels,box[0] );
 
 	for(int z = cellMin.z; z <= cellMax.z; z++)
 	{
@@ -45,27 +26,3 @@ __kernel void findObjectCells(__global Object * objects,__global BBox * box,
 
 	}
 }
-
-/*
-__kernel void findObjectCells(__global Object * objects,__global BBox * box,
-	__global int * cells,
- __global int * cellIndices,__global int * objectIndices ,
-	__global BBox * cBox, __global int * cellIndexIncrement)
-{
-	int objectIndex = get_global_id(0);	
-	int cellsIndex = get_global_id(1);	
-
-	if(bboxObjectCollided(cBox[cellsIndex],objects[objectIndex]) )
-	{
-		int currentIndex = (cellsIndex == 0) ?  0 : cellIndices[cellsIndex-1];
-		bool found = false;
-
-		int offsetIndex = currentIndex + (atom_inc(&cellIndexIncrement[cellsIndex]));
-
-		objectIndices[offsetIndex] = objectIndex + 1;	
-			
-		
-		
-	}
-}
-*/

@@ -19,6 +19,7 @@
 #include "UI\IntSlider.h"
 #include "UI\Float3Slider.h"
 #include <QtWidgets\qcombobox.h>
+
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
@@ -60,6 +61,7 @@ private:
 	QCheckBox * softShadows;
 	IntSlider * numberOfRefractions;
 	IntSlider * numberOfReflections;
+	IntSlider * numberOfBounces;
 
 
 

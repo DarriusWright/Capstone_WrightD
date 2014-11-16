@@ -1,7 +1,7 @@
 __kernel void generateSceneBBox(__global BBox * box, __global Object * objects,
 	 int length,
      __global float3 * minArray,
-     __global float3 * maxArray)
+     __global float3 * maxArray , __global Mesh * meshes)
 {
 
 
@@ -13,9 +13,9 @@ __kernel void generateSceneBBox(__global BBox * box, __global Object * objects,
     // Loop sequentially over chunks of input vector
     while (global_index < length) {
         
-
-        accumulatorMax = max(accumulatorMax, objects[global_index].box.max + objects[global_index].position.xyz);
-        accumulatorMin = min(accumulatorMin, objects[global_index].box.min + objects[global_index].position.xyz );
+        float3 position = meshes[objects[global_index].meshIndex].position.xyz;
+        accumulatorMax = max(accumulatorMax, objects[global_index].box.max + position);
+        accumulatorMin = min(accumulatorMin, objects[global_index].box.min + position);
        
         global_index += get_global_size(0);
     }

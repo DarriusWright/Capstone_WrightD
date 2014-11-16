@@ -10,7 +10,7 @@ enum MaterialType
 {
 	DIFFUSE,
 	SPECULAR,
-	MIRROR
+	TRANS
 };
 
 typedef struct 

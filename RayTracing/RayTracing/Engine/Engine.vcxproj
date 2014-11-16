@@ -83,6 +83,7 @@
     <ClInclude Include="Helper.h" />
     <ClInclude Include="Lights\Light.h" />
     <ClInclude Include="Objects\Material.h" />
+    <ClInclude Include="Objects\Mesh.h" />
     <ClInclude Include="Objects\Object.h" />
     <ClInclude Include="Objects\Triangle.h" />
     <ClInclude Include="Exception\OpenCLExceptions.h" />

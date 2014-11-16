@@ -29,6 +29,8 @@
 #include <Exception\OpenCLExceptions.h>
 #include <ctime>
 #include <stdio.h>
+#include <QtCore\qdatetime.h>
+#include <Objects\Mesh.h>
 
 using std::vector;
 using std::cout;
@@ -49,6 +51,7 @@ public:
 	float getInterval();
 	Random random;
 	void setSamples(int samples = 4);
+	void setMaxBounce(int bounces);
 
 	void setShadowsEnabled(bool enabled);
 	void setReflectionsEnabled(bool enabled);
@@ -60,14 +63,19 @@ public:
 	void changeLightType(QString index);
 
 
+
+
 //	void initialize()override;
 //	void render()override;
+
+
+
 	int samples;
 	int numberOfReflections;
 	int numberOfRefractions;
+	int maxDepth;
 
-	bool softShadowsEnabled();
-	void setSoftShadows(bool enabled);
+
 
 
 	bool globalIlluminationEnabled();
@@ -83,12 +91,12 @@ public:
 
 private:
 	glm::vec4 backgroundColor;
-
+	float currentTime;
 	int randomInt;
+	long randSeed;
 	bool initialized;
 
 
-	int maxDepth;
 
 	//Grid functions
 	void calculateVoxelSize();
@@ -111,14 +119,14 @@ private:
 	float fps;
 	float interval;
 
-	void addMesh(std::string filePath, glm::vec3 position = glm::vec3(0.0f,0.0f,10.0f));
+	void addMesh(std::string filePath, glm::vec3 position = glm::vec3(0.0f,0.0f,10.0f) , MaterialType type = DIFFUSE);
 	
 
 //	QOpenGLFramebufferObject * frameBuffer;
 //	GLuint frameBufferId;
 //	void createFrameBuffer();
 	std::vector<Triangle> triangles;
-
+	std::vector<Mesh> meshes;
 	
 	void updateDrawScene();
 	void updateBBox();
@@ -213,7 +221,6 @@ private:
 	cl_uint shadowsEnabled;
 	cl_uint reflectionsEnabled;
 	cl_uint refractionsEnabled;
-	cl_uint softShadows;
 	cl_uint globalIllumination;
 
 	//update release mem
@@ -226,6 +233,7 @@ private:
 	cl_mem minMem;
 	cl_mem maxMem;
 	cl_mem trianglesMem;
+	cl_mem meshMem;
 	cl_mem writeCLImage;
 	cl_mem depthBuffer;
 	cl_mem lightMem;

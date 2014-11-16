@@ -115,7 +115,8 @@ __global Triangle * triangles)
 		}	
 		cellIndex = currentCell.x + currentCell.y * cellDimensions.x + currentCell.z * cellDimensions.x * cellDimensions.y;
 		
-		IntersectionInfo intersectInfo = rayTrace(ray, camera,cellIndices, objectIndices, light, objects, triangles, cellIndex, currentCell, box, voxelWidth ,cellDimensions);
+		IntersectionInfo intersectInfo;
+		// = rayTrace(ray, camera,cellIndices, objectIndices, light, objects, triangles, cellIndex, currentCell, box, voxelWidth ,cellDimensions);
 		
 		if(intersectInfo.distance == -1)bounces = numberOfBounces + 1;
 		intersectionPoint = intersectInfo.position;

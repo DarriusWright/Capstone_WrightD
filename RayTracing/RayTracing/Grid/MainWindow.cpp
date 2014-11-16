@@ -20,11 +20,13 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 	cameraFocalDistance = new FloatSlider("Focal Distance", 0.0f, 2000.0f,&renderer->camera.focalDistance, 10000.0f);
 	cameraRadius  = new FloatSlider("Radius", 0.0f, 1.0f,&renderer->camera.position[3], 10.0f);
 
-	softShadows =  new QCheckBox("Soft Shadows");
+	//softShadows =  new QCheckBox("Soft Shadows");
+	numberOfBounces = new IntSlider("Number Of Bounces",0, 10, &renderer->maxDepth);
 	numberOfReflections = new IntSlider("Number Of Reflections",1, 10, &renderer->numberOfReflections);
 	numberOfRefractions = new IntSlider("Number Of Refractions",1, 10, &renderer->numberOfRefractions);
 
 	connect(sampling,&IntSlider::valueChanged,renderer,&RenderWindow::setSamples);
+	connect(numberOfBounces,&IntSlider::valueChanged,renderer,&RenderWindow::setMaxBounce);
 
 	lightSelection = new QComboBox();
 	lightSelection->addItem("Directional");
@@ -62,25 +64,26 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 
 	rayWidget->setLayout(rayLayout);
 	rayLayout->addWidget(sampling);
-	rayLayout->addWidget(softShadows);
-	rayLayout->addWidget(numberOfReflections);
-	rayLayout->addWidget(numberOfRefractions);
+	//rayLayout->addWidget(softShadows);
+	rayLayout->addWidget(numberOfBounces);
+	//rayLayout->addWidget(numberOfReflections);
+	//rayLayout->addWidget(numberOfRefractions);
 
 	cameraWidget->setLayout(cameraLayout);
-	cameraLayout->addWidget(cameraChoice);
+	//cameraLayout->addWidget(cameraChoice);
 	cameraLayout->addWidget(cameraLookAt);
 	cameraLayout->addWidget(cameraDistance);
-	cameraLayout->addWidget(cameraFocalDistance);
-	cameraLayout->addWidget(cameraRadius);
+	//cameraLayout->addWidget(cameraFocalDistance);
+	//cameraLayout->addWidget(cameraRadius);
 
-	lightLayout->addWidget(lightSelection);
-	lightLayout->addWidget(direction);
+	//lightLayout->addWidget(lightSelection);
+	//lightLayout->addWidget(direction);
 	lightLayout->addWidget(position );
-	lightLayout->addWidget(pointLightRadius);
-	lightLayout->addWidget(ambient);
-	lightLayout->addWidget(diffuse);
-	lightLayout->addWidget(specular);
-	lightLayout->addWidget(specularPower);
+	//lightLayout->addWidget(pointLightRadius);
+	//lightLayout->addWidget(ambient);
+	//lightLayout->addWidget(diffuse);
+	//lightLayout->addWidget(specular);
+	//lightLayout->addWidget(specularPower);
 
 
 	optimizationWidget->setLayout(optimizationLayout);
@@ -126,8 +129,8 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 
 	updateTimer.start();
 
-	changeLightType(renderer->lights[0].type);
-	changeCameraType(renderer->camera.type);
+	//changeLightType(renderer->lights[0].type);
+	//changeCameraType(renderer->camera.type);
 }
 
 
@@ -232,11 +235,11 @@ void MainWindow::addMenus()
 	connect(enabledShadows,&QAction::triggered,renderer,&RenderWindow::setShadowsEnabled);
 	viewMenu->addAction(enabledShadows);
 
-	connect(enabledReflections,&QAction::toggled,renderer,&RenderWindow::setReflectionsEnabled);
-	viewMenu->addAction(enabledReflections);
+	//connect(enabledReflections,&QAction::toggled,renderer,&RenderWindow::setReflectionsEnabled);
+	//viewMenu->addAction(enabledReflections);
 
-	connect(enabledRefractions,&QAction::toggled,renderer,&RenderWindow::setRefractionsEnabled);
-	viewMenu->addAction(enabledRefractions);
+	//connect(enabledRefractions,&QAction::toggled,renderer,&RenderWindow::setRefractionsEnabled);
+	//viewMenu->addAction(enabledRefractions);
 
 
 
@@ -278,6 +281,7 @@ void MainWindow::updateWindow()
 	cameraDistance->update();
 	cameraRadius->update();
 	cameraFocalDistance->update();
+
 	//sampling->update();
 	//numberOfReflections->update();
 	//numberOfRefractions->update();

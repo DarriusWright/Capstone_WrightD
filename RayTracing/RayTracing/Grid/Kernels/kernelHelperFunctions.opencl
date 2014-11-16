@@ -13,7 +13,7 @@ __constant uint SPHERICAL_CAMERA = 3;
 __constant uint STEREO_CAMERA = 4;
 __constant uint DIFFUSE = 0;
 __constant uint SPECULAR = 1;
-__constant uint MIRROR = 2;
+__constant uint TRANS = 2;
 
 __constant float PI = 3.1415926535f;//...
 __constant float PI_1 = 1.0f/3.1415926535f;
@@ -85,15 +85,18 @@ typedef struct
 
 typedef struct
 {
-    Material material;
     BBox box;
-    float4 position;
     int triangleIndex;
-    int index;
-    uint cellId;
-    
-    
+    uint meshIndex;
 }Object;
+
+typedef struct
+{
+	Material material;
+	float4 position;
+	uint2 indices;
+	float d[2];
+}Mesh;
 
 typedef struct
 {
@@ -172,6 +175,11 @@ uint toUInt(float x)
 uint4 toRGBA(float4 color)
 {
 	return (uint4)(toUInt(color.x),toUInt(color.y),toUInt(color.z),toUInt(color.w));
+}
+
+float3 reflect(float3 direction, float3 normal)
+{
+	return direction - normal * 2.0f * dot(normal, direction);
 }
 
 
@@ -607,7 +615,7 @@ float2 mapToDisk(float2 samplePoint)
 
 	return (float2)(r* cos(phi),r * sin(phi));
 }
-Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 dim, int sampleNumber , int seed)
+Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 dim, int sampleNumber , long seed)
 {
 	Ray ray;
 
@@ -722,12 +730,12 @@ bool bboxCollided(BBox b1 , BBox b2)
 		b2.min.z <= b1.min.z + fabs(b1.min.z - b1.max.z)) 
 	;
 }
-bool bboxObjectCollided(BBox b1 , Object o1)
+bool bboxObjectCollided(BBox b1 , Mesh m, Object o1)
 {
 
 	BBox box;
-	box.min = o1.box.min + o1.position;
-	box.max = o1.box.max + o1.position;
+	box.min = o1.box.min + m.position;
+	box.max = o1.box.max + m.position;
 
 	return bboxCollided(b1,box);
 
@@ -746,7 +754,7 @@ IntersectionInfo rayTrace(Ray ray,Camera camera,
 	__global int * cellIndices, __global int * objectIndices,
 	__global Light * light, __global Object * objects,
 	__global Triangle * triangles, int cellIndex, int3 currentCell,
-	 BBox box,float3 voxelWidth,  float3 cellDimensions)
+	 BBox box,float3 voxelWidth,  float3 cellDimensions, __global Mesh * meshes)
 {
 	bool run = true;
 	IntersectionInfo intersect;
@@ -764,7 +772,7 @@ IntersectionInfo rayTrace(Ray ray,Camera camera,
 		for(int i = 0; i <  cellObjectNumber; i++ )
 		{
 			int objectIndex = objectIndices[cellIndices[ (cellIndex > 0) ? cellIndex-1 : 0] + i]-1;
-			if(objects[objectIndex].position.w == 0.0)
+			if(meshes[objects[objectIndex].meshIndex].position.w == 0.0)
 			{
 				TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
 				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
@@ -783,8 +791,9 @@ IntersectionInfo rayTrace(Ray ray,Camera camera,
 			intersect.direction = ray.direction;
 			intersect.position = ray.direction * lastDistance + ray.origin;
 			float3 intersectionPoint = ray.direction.xyz * lastDistance;
-			intersect.color.xyz = convert_float3(adsLight(light[0], objects[objectColorIndex].material, camera, intersectionPoint, normal).xyz);
-			intersect.color.xyz /= 255.0f;
+			//intersect.color.xyz = convert_float3(adsLight(light[0], objects[objectColorIndex].material, camera, intersectionPoint, normal).xyz);
+			//intersect.color.xyz /= 255.0f;
+			intersect.color.xyz = (float3)(0,0,0);
 			intersect.distance = lastDistance;
 			intersect.objectIndex = objectColorIndex;
 			intersect.type = TRIANGLE;
