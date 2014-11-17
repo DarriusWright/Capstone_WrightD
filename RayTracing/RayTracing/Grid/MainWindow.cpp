@@ -1,19 +1,30 @@
 #include "MainWindow.h"
+#include <QtQuick\qquickview.h>
+#include <QtQml\qqml.h>
+#include <QtQml\qqmlengine.h>
+#include <QtQml\qqmlfile.h>
+#include <QtQml\qjsengine.h>
+#include <QtQml\qqmlscriptstring.h>
 
 
-MainWindow::MainWindow(RenderWindow * render) : renderer(render)
+
+MainWindow::MainWindow(RenderWindow * render) : renderer(render),
+	leftComponent(&engine, QUrl::fromLocalFile("left")),
+	rightComponent(&engine, QUrl::fromLocalFile("right"))
 {
-	//resize(renderer->width(), renderer->height());
+	initializeViews();
+	connectSignals();
+
 	mainWidget = new QWidget();
 	QHBoxLayout * mainLayout = new QHBoxLayout();
 	QVBoxLayout * tabLayout = new QVBoxLayout();
 	pointLightRadius = new FloatSlider("Radius",0.0f, 100.0f,&renderer->lights[0].direction.s[3],1000.0f);
 	direction = new Float3Slider("Direction", glm::vec3(-1.0f), glm::vec3(1.0f), &renderer->lights[0].direction.s[0],glm::vec3(20.0f));
 	position = new Float3Slider("Position", glm::vec3(-50.0f), glm::vec3(50.0f), &renderer->lights[0].position.s[0],glm::vec3(1000.0f));
-	ambient = new Float3Slider("Ambient", glm::vec3(0.0f), glm::vec3(1.0f), &renderer->lights[0].material.ambient.s[0], glm::vec3(100.0f));
-	diffuse = new Float3Slider("Diffuse", glm::vec3(0.0f), glm::vec3(1.0f), &renderer->lights[0].material.diffuse.s[0], glm::vec3(100.0f));
-	specular = new Float3Slider("Specular", glm::vec3(0.0f), glm::vec3(1.0f), &renderer->lights[0].material.specular.s[0], glm::vec3(100.0f));
-	specularPower = new FloatSlider("Specular Power", 0.0f,200.0f, &renderer->lights[0].material.specular.s[3], 1000.0f);
+	//ambient = new Float3Slider("Ambient", glm::vec3(0.0f), glm::vec3(1.0f), &renderer->lights[0].material.ambient.s[0], glm::vec3(100.0f));
+	//diffuse = new Float3Slider("Diffuse", glm::vec3(0.0f), glm::vec3(1.0f), &renderer->lights[0].material.diffuse.s[0], glm::vec3(100.0f));
+	//specular = new Float3Slider("Specular", glm::vec3(0.0f), glm::vec3(1.0f), &renderer->lights[0].material.specular.s[0], glm::vec3(100.0f));
+	//specularPower = new FloatSlider("Specular Power", 0.0f,200.0f, &renderer->lights[0].material.specular.s[3], 1000.0f);
 	sampling = new IntSlider("Samples Squared", 1, 6, &renderer->sampleSquared);
 	cameraLookAt = new Float3Slider("Look At", glm::vec3(-10.0f), glm::vec3(10.0f), &renderer->camera.lookAt[0],glm::vec3(200.0f));
 	cameraDistance = new FloatSlider("Distance", 0.0f, 2000.0f,&renderer->camera.distance, 10000.0f);
@@ -95,7 +106,8 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 	tabs->addTab(lightsWidget, "Light");
 	tabs->addTab(optimizationWidget, "Optimization");
 	tabs->addTab(rayWidget, "Ray");
-	mainLayout->addLayout(tabLayout);
+	//mainLayout->addLayout(tabLayout);
+	mainLayout->addWidget(leftContainer);
 
 	rayLayout->setContentsMargins(0,0,0,0);
 	rayLayout->setSpacing(0);
@@ -115,9 +127,19 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render)
 	mainLayout->setMargin(0);
 	//mainLayout->addLayout(featuresLayout);
 	mainLayout->addWidget(renderer);
+	mainLayout->addWidget(rightContainer);
 	mainWidget->setLayout(mainLayout);
 	setCentralWidget(mainWidget);
-	addMenus();
+	//mainLayout->addWidget(renderer);
+	//mainLayout->addWidget(mainWidget);
+	//rightContainer->setLayout(mainLayout);
+	
+	//setCentralWidget(mainWidget);
+	//QHBoxLayout * l = new QHBoxLayout();
+	//l->addWidget(mainWidget);
+	//rightContainer->setLayout(l);
+	//setCentralWidget(rightContainer);
+	//addMenus();
 	connect(&updateTimer,&QTimer::timeout,this, &MainWindow::updateWindow);
 	//connect(lightSelection, &QComboBox::currentIndexChanged,renderer,  &RenderWindow::changeLightType);
 
@@ -138,6 +160,50 @@ MainWindow::~MainWindow(void)
 {
 }
 
+
+void MainWindow::initializeViews()
+{
+	QQuickView * rightView = new QQuickView();
+	rightContainer = QWidget::createWindowContainer(rightView, this);
+	rightView->setSource(QUrl("right.qml"));
+	rightContainer->setMinimumSize(200, 200);
+	rightContainer->setFocusPolicy(Qt::TabFocus);
+	rightQml =rightView->rootObject();
+
+
+	QQuickView * leftView = new QQuickView();
+	leftContainer = QWidget::createWindowContainer(leftView, this);
+	leftView->setSource(QUrl("left.qml"));
+	leftContainer->setMinimumSize(400, 200);
+	leftContainer->setFocusPolicy(Qt::TabFocus);
+
+	rightQml = rightView->rootObject();
+	leftQml = leftView->rootObject();
+
+}
+
+void MainWindow::connectSignals()
+{
+	//connect(leftQml, SIGNAL(changeModelName()), this,SLOT(changeName()));
+	connectQMLSignals();
+}
+
+void MainWindow::connectQMLSignals()
+{
+	connect(leftQml, SIGNAL(bounceValueChanged(int)), this , SLOT(changeBounceValue(int)));
+	connect(rightQml, SIGNAL(changeModelName()), this,SLOT(changeName()));
+
+}
+
+void MainWindow::changeBounceValue(int value)
+{
+	renderer->setMaxBounce(value);
+}
+
+void MainWindow::changeName()
+{
+	qDebug() << "Changed Name" ;
+}
 
 void MainWindow::changeLightType(int index)
 {
@@ -273,10 +339,10 @@ void MainWindow::updateWindow()
 	pointLightRadius->update();
 	direction->update();
 	position->update();
-	ambient->update();
-	diffuse->update();
-	specular->update();
-	specularPower->update();
+	//ambient->update();
+	//diffuse->update();
+	//specular->update();
+	//specularPower->update();
 	cameraLookAt->update();
 	cameraDistance->update();
 	cameraRadius->update();

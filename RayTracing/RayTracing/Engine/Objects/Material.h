@@ -15,9 +15,7 @@ enum MaterialType
 
 typedef struct 
 {
-	cl_float4 ambient;
-	cl_float4 diffuse;
-	cl_float4 specular;
+	cl_float4 color;
 	float reflection;
 	float refraction;
 	MaterialType type;

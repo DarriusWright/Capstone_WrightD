@@ -55,9 +55,7 @@ typedef struct
 
 typedef struct 
 {
-	float4 ambient;
-	float4 diffuse;
-	float4 specular;
+	float4 color;
 	float reflection;
 	float refraction;
 	uint type;
@@ -685,32 +683,32 @@ uint4 adsLight(Light light, Material material, Camera camera, float3 intersectio
 	lightVector = (light.type == DIRECTIONAL_LIGHT) ? normalize(light.direction.xyz) : normalize(light.position - intersectionPoint);
 	float lightDotNormal = max(dot(lightVector.xyz,normal.xyz), 0.0f);
 	float diffuseFactor = dot(normal,lightVector);
-	float3 diffuse = light.material.diffuse.xyz * max(diffuseFactor, 0.0f) * material.diffuse.xyz;// * (light.type == POINT_LIGHT) ? attenuation : 1.0f;
-	float3 ambient = material.ambient.xyz * light.material.ambient.xyz;
+	float3 diffuse ;//= light.material.diffuse.xyz * max(diffuseFactor, 0.0f) * material.diffuse.xyz;// * (light.type == POINT_LIGHT) ? attenuation : 1.0f;
+	float3 ambient ;//= material.ambient.xyz * light.material.ambient.xyz;
 
-	float3 s = dot(normal, lightVector) * normal - lightVector;
-	float3 r =  (2.0f*(dot(normal, lightVector) * normal)) - lightVector;
-	float3 v = intersectionPoint - camera.position;
-	r = normalize(r);
-	v = normalize(v);
-	s = normalize(s);
+	//float3 s = dot(normal, lightVector) * normal - lightVector;
+	//float3 r =  (2.0f*(dot(normal, lightVector) * normal)) - lightVector;
+	//float3 v = intersectionPoint - camera.position;
+	//r = normalize(r);
+	//v = normalize(v);
+	//s = normalize(s);
 
-	if(dot(r,v) < 0)
-	{
-		r = (float3)(0.0f,0.0f,0.0f);
-		v = (float3)(0.0f,0.0f,0.0f);
-	}
-	float specularPower = pow(dot(v,r), material.specular.w);
+	//if(dot(r,v) < 0)
+	//{
+	//	r = (float3)(0.0f,0.0f,0.0f);
+	//	v = (float3)(0.0f,0.0f,0.0f);
+	//}
+	//float specularPower = pow(dot(v,r), material.specular.w);
 
-	float3 specular = light.material.specular.xyz * specularPower * material.specular;// * attenuation;//* (light.type == POINT_LIGHT) ? attenuation : 1.0f;
-	if(light.type == POINT_LIGHT)
-	{
-		float attenuation = clamp((1.0f - length(lightVector)/ light.direction.w) , 0.0f, 1.0f);
-		diffuse *= attenuation;
-		specular *= attenuation;
-	}
+	//float3 specular = light.material.specular.xyz * specularPower * material.specular;// * attenuation;//* (light.type == POINT_LIGHT) ? attenuation : 1.0f;
+	//if(light.type == POINT_LIGHT)
+	//{
+	//	float attenuation = clamp((1.0f - length(lightVector)/ light.direction.w) , 0.0f, 1.0f);
+	//	diffuse *= attenuation;
+	//	specular *= attenuation;
+	//}
 	
-	float3 finalColor =   ambient + diffuse + specular;
+	float3 finalColor =   ambient + diffuse;// + specular;
 	
 	return (uint4)((convert_uint3(finalColor * 255.0f)),255);	
 }

@@ -16,7 +16,7 @@ const cl_float RenderWindow::MAX = -10000000.0f;
 const cl_uint RenderWindow::NUMBER_OF_SPHERES = 1;
 
 
-RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance()), shadowsEnabled(false), 
+RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance()), shadowsEnabled(true), 
 	numberOfReflections(1), reflectionsEnabled(false), refractionsEnabled(false) , numberOfRefractions(1),
 	globalIllumination(false), randomInt(0), initialized(false) , maxDepth(5),backgroundColor(.0,.0,.0,1), currentTime(0.0f)
 {
@@ -189,8 +189,8 @@ void RenderWindow::addMesh(std::string fileName, glm::vec3 position , MaterialTy
 	//	objects.reserve(modelIndices.size() / 3);
 	Random random = Random::getInstance();
 
-	Material material = {{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
-	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
+	Material material = {/*{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
+	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},*/
 	//{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f, (MaterialType)(rand()%3)};
 	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f, type};
 	Mesh m = {material, {position.x,position.y,position.z, 0.0f},{triangles.size(),triangles.size() + modelIndices.size()/3 }};
@@ -254,9 +254,9 @@ void RenderWindow::addObject(std::string path)
 }
 void RenderWindow::addSphere()
 {
-	Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
-	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
-	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
+	Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}}, 
+//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
+	//{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
 	glm::vec4(random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(30.0f,50.0f),30.0f)};
 	//spheres.push_back(sphere);
 
@@ -287,13 +287,13 @@ void RenderWindow::construct()
 	setMinimumSize(640,480);
 
 	layout = new QHBoxLayout();
-	Light light = {{{0.925f,0.835f,0.102f}, {0.73f,0.724f,0.934f},{0.2f,0.52f,0.96f}}, {-4.0f,1.0f,18.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::POINT_TYPE };
+	Light light = {{{0.925f,0.835f,0.102f}}, {2.0f,6.0f,18.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::POINT_TYPE };
 	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f));
 	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
-	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f));
+	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f), TRANS);
 	
 	//addMesh("Box.obj", glm::vec3(0.0f,2.0f,9.0f));
-	addMesh("basicCube.obj", glm::vec3(0.0f,2.0f,9.0f),TRANS);
+	addMesh("basicCube.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::TRANS);
 //	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,6.0f));
 	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f),DIFFUSE);
 

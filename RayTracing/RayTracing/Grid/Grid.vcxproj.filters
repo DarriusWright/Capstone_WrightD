@@ -93,4 +93,10 @@
   <ItemGroup>
     <CudaCompile Include="RayTracing.cu" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="right.qml" />
+    <None Include="left.qml" />
+    <None Include="QMLComponents\TextSlider.qml" />
+    <None Include="QMLComponents\Float3Slider.qml" />
+  </ItemGroup>
 </Project>

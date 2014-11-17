@@ -78,7 +78,7 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 		Material material = meshes[objects[intersect.objectIndex].meshIndex].material;
 		if(intersect.distance < t)
 		{
-			surfaceColor = material.diffuse.xyz;
+			surfaceColor = material.color.xyz;
 			
 			float3 hit = intersect.position;
 			ray.origin = hit;

@@ -19,6 +19,10 @@
 #include "UI\IntSlider.h"
 #include "UI\Float3Slider.h"
 #include <QtWidgets\qcombobox.h>
+#include <QtQml\qqmlengine.h>
+#include <QtQml\qqmlcomponent.h>
+#include <QtQuick\qquickitem.h>
+
 
 class MainWindow : public QMainWindow
 {
@@ -30,6 +34,20 @@ public:
 
 
 private:
+	void initializeViews();
+	void connectSignals();
+	void connectQMLSignals();
+
+
+	QQmlEngine engine;
+	QQmlComponent leftComponent;
+	QQmlComponent rightComponent;
+	QObject * object;
+	QQuickItem * rightQml;
+	QQuickItem * leftQml;
+	QWidget * rightContainer;
+	QWidget * leftContainer;
+
 	QWidget * mainWidget;
 	RenderWindow * renderer;
 	QMenu * fileMenu;
@@ -71,6 +89,9 @@ private:
 private slots:
 	void changeLightType(int);
 	void changeCameraType(int);
+	void changeBounceValue(int);
+	void changeName();
+
 private:
 	void addObject();
 	void addSphere();
