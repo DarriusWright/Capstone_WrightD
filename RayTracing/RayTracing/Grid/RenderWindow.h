@@ -31,6 +31,9 @@
 #include <stdio.h>
 #include <QtCore\qdatetime.h>
 #include <Objects\Mesh.h>
+#include "GameObject.h"
+#include <QtQml\qqmllist.h>
+#include "GameObjectContainer.h"
 
 using std::vector;
 using std::cout;
@@ -61,9 +64,9 @@ public:
 	bool isRefractionsEnabled()const;
 	vector<Light> lights;
 	void changeLightType(QString index);
+	QList<GameObject * > gameObjectList;
 
-
-
+	GameObjectContainer gameObjectContainer;
 
 //	void initialize()override;
 //	void render()override;
@@ -88,7 +91,7 @@ public:
 	void changeLightType(int index);
 	void changeCameraType(int index);
 
-
+	
 private:
 	glm::vec4 backgroundColor;
 	float currentTime;

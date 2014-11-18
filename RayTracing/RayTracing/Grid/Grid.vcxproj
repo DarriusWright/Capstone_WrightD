@@ -81,6 +81,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CudaWidget.cu" />
+    <ClCompile Include="GameObject.cpp" />
+    <ClCompile Include="GameObjectContainer.cpp" />
+    <ClCompile Include="GameObjectContainer_moc.cpp" />
+    <ClCompile Include="GameObject_moc.cpp" />
     <ClCompile Include="MainWindow_moc.cpp" />
     <ClCompile Include="UI\IntSlider_moc.cpp" />
     <ClCompile Include="UI\UIWidget.cpp" />
@@ -97,6 +101,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CudaWidget.h" />
+    <ClInclude Include="GameObject.h" />
+    <ClInclude Include="GameObjectContainer.h" />
     <ClInclude Include="helper_math.h" />
     <ClInclude Include="UI\UIWidget.h" />
     <ClInclude Include="UI\IntSlider.h" />
@@ -113,6 +119,7 @@
   <ItemGroup>
     <None Include="left.qml" />
     <None Include="QMLComponents\Float3Slider.qml" />
+    <None Include="QMLComponents\Searchbox.qml" />
     <None Include="right.qml" />
     <None Include="QMLComponents\TextSlider.qml" />
   </ItemGroup>

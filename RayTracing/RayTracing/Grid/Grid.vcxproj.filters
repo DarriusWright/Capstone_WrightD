@@ -57,6 +57,18 @@
     <ClCompile Include="CudaWidget.cu">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GameObject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObjectContainer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObject_moc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObjectContainer_moc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RenderWindow.h">
@@ -89,6 +101,12 @@
     <ClInclude Include="helper_math.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GameObject.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObjectContainer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="RayTracing.cu" />
@@ -98,5 +116,6 @@
     <None Include="left.qml" />
     <None Include="QMLComponents\TextSlider.qml" />
     <None Include="QMLComponents\Float3Slider.qml" />
+    <None Include="QMLComponents\Searchbox.qml" />
   </ItemGroup>
 </Project>

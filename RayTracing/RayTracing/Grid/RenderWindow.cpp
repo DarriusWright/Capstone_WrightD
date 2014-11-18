@@ -297,50 +297,21 @@ void RenderWindow::construct()
 //	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,6.0f));
 	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f),DIFFUSE);
 
-	//Random random = Random::getInstance();
-	//for(int i = 0; i < NUMBER_OF_SPHERES; i++)
-	//{
+	GameObject * lightObject = new GameObject("Light", Type::Light_Type,0);
+	GameObject  * cubeObject = new GameObject("Cube", Type::Mesh_Type,0);
+	GameObject *  planeObject  = new GameObject("Plane", Type::Mesh_Type,1);
+	GameObject *  cameraObject = new GameObject("Camera", Type::Camera_Type, 0 );
 
-	//	Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
-	//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
-	//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
-	//	glm::vec4(random.getRandomFloat(-10.0f,10.0f), random.getRandomFloat(-10.0f,10.0f), random.getRandomFloat(0.0f,10.0f),2.0f)};
-	//	//spheres.push_back(sphere);
+	gameObjectList.append(lightObject);
+	gameObjectList.append(cubeObject);
+	gameObjectList.append(cameraObject);
+	gameObjectList.append(planeObject);
+	
+	/*gameObjectContainer.addObject(lightObject);
+	gameObjectContainer.addObject(cubeObject);
+	gameObjectContainer.addObject(planeObject);
+	gameObjectContainer.addObject(cameraObject);*/
 
-	//	Object object; 
-
-	//	BBox b = {
-	//		glm::vec3(sphere.getMinX(),
-	//		sphere.getMinY(),
-	//		sphere.getMinZ()),0.0f,
-	//		glm::vec3(
-	//		sphere.getMaxX(),
-	//		sphere.getMaxY(),
-	//		sphere.getMaxZ()),0.0f
-
-	//	};
-	//	object.material = sphere.material;
-	//	object.box = b;
-	//	cl_int2 indices = {0,0};
-	//	object.triangleIndex =-1;
-	//	object.index = i;
-	//	object.position = sphere.position;
-
-
-	//	objects.push_back(object);
-	//	float x;
-	//	float y;
-
-	//	box.min[0] = glm::min((sphere.getMinX() + sphere.position[0]) ,box.min[0]);
-	//	box.min[1] = glm::min(sphere.getMinY()  +  sphere.position[1],box.min[1]);
-	//	box.min[2] = glm::min(sphere.getMinZ()	 + sphere.position[2],box.min[2]);
-
-	//	box.max[0] = glm::max(sphere.getMaxX()+ sphere.position[0],box.max[0]);
-	//	box.max[1] = glm::max(sphere.getMaxY()+  sphere.position[1],box.max[1]);
-	//	box.max[2] = glm::max(sphere.getMaxZ()+ sphere.position[2],box.max[2]);
-
-
-	//}
 	box.min -= 0.001f;
 	box.max += 0.001f;
 

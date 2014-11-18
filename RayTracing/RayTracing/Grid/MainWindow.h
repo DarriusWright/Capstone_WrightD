@@ -22,6 +22,7 @@
 #include <QtQml\qqmlengine.h>
 #include <QtQml\qqmlcomponent.h>
 #include <QtQuick\qquickitem.h>
+#include <QtQml\qqmlapplicationengine.h>
 
 
 class MainWindow : public QMainWindow
@@ -39,7 +40,8 @@ private:
 	void connectQMLSignals();
 
 
-	QQmlEngine engine;
+	QQmlApplicationEngine engine;
+	//QQmlEngine engine;
 	QQmlComponent leftComponent;
 	QQmlComponent rightComponent;
 	QObject * object;

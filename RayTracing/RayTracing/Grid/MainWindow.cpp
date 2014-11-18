@@ -5,13 +5,41 @@
 #include <QtQml\qqmlfile.h>
 #include <QtQml\qjsengine.h>
 #include <QtQml\qqmlscriptstring.h>
-
+#include <QtQml\qqmlcontext.h>
+#include "GameObjectContainer.h"
 
 
 MainWindow::MainWindow(RenderWindow * render) : renderer(render),
 	leftComponent(&engine, QUrl::fromLocalFile("left")),
 	rightComponent(&engine, QUrl::fromLocalFile("right"))
 {
+	//qRegisterMetaType<GameObject>("GameObject");
+	//qRegisterMetaType<GameObjectContainer>("GameObjectContainer");
+	
+	
+//	qmlRegisterType<GameObject>("Custom", 1,0,"GameObject");
+//	qmlRegisterType<GameObjectContainer>("Custom", 1,0,"GameObjectContainer");
+	qmlRegisterUncreatableType<GameObject>("GameObject", 1,0, "GameObject","Instanciated C++ side !");
+	//for()
+
+	QVariantList listElements;
+	listElements.append(QVariant::fromValue(new GameObject("Cube",Type::Mesh_Type,0)));
+	//engine.rootContext()->setContextProperty("gContainer",QVariant::fromValue(renderer->gameObjectContainer));
+	engine.rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
+
+	engine.load(QUrl(QStringLiteral("left.qml")));
+
+	//qmlRegisterType<GameObject>("compoents.custom", 2,1,"GameObject");
+	//QVariantList variantList;
+
+
+	//for( GameObject g : renderer->gameObjectList )
+	//{
+	//	variantList << 10;
+	//}
+
+	//QMetaObject::invokeMethod(view,"readValues", QVariant, QVariant::fromValue())
+
 	initializeViews();
 	connectSignals();
 
@@ -166,7 +194,8 @@ void MainWindow::initializeViews()
 	QQuickView * rightView = new QQuickView();
 	rightContainer = QWidget::createWindowContainer(rightView, this);
 	rightView->setSource(QUrl("right.qml"));
-	rightContainer->setMinimumSize(200, 200);
+	rightContainer->setMinimumSize(300, 200);
+	rightContainer->setMaximumSize(300, 700);
 	rightContainer->setFocusPolicy(Qt::TabFocus);
 	rightQml =rightView->rootObject();
 
@@ -174,11 +203,29 @@ void MainWindow::initializeViews()
 	QQuickView * leftView = new QQuickView();
 	leftContainer = QWidget::createWindowContainer(leftView, this);
 	leftView->setSource(QUrl("left.qml"));
-	leftContainer->setMinimumSize(400, 200);
+	
+	leftContainer->setMinimumSize(300, 200);
+	leftContainer->setMaximumSize(300, 700);
 	leftContainer->setFocusPolicy(Qt::TabFocus);
 
 	rightQml = rightView->rootObject();
 	leftQml = leftView->rootObject();
+
+	qmlRegisterUncreatableType<GameObject>("GameObject", 1,0, "GameObject","Instanciated C++ side !");
+	//for()
+
+	QVariantList listElements;
+
+	for(GameObject * g  : renderer->gameObjectList)
+	{
+		listElements.append(QVariant::fromValue(g));
+	}
+
+	//listElements.append(QVariant::fromValue(new GameObject("Cubelkfdsjaslkfdjsakf",Type::Mesh_Type,0)));
+	//engine.rootContext()->setContextProperty("gContainer",QVariant::fromValue(renderer->gameObjectContainer));
+	leftView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
+
+
 
 }
 
@@ -190,7 +237,7 @@ void MainWindow::connectSignals()
 
 void MainWindow::connectQMLSignals()
 {
-	connect(leftQml, SIGNAL(bounceValueChanged(int)), this , SLOT(changeBounceValue(int)));
+	//connect(leftQml, SIGNAL(bounceValueChanged(int)), this , SLOT(changeBounceValue(int)));
 	connect(rightQml, SIGNAL(changeModelName()), this,SLOT(changeName()));
 
 }
