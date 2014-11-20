@@ -9,7 +9,7 @@ Rectangle
 {
 	anchors.fill: parent;
 	color : "#3E393A";
-//	signal void modelChanged(int index, int type);
+	signal modelChanged(int index, int t);
 
 
 	Rectangle
@@ -35,77 +35,73 @@ Rectangle
 		anchors.topMargin : 20;
 		width : parent.width;
 		anchors.leftMargin : 200;
-		
+
 		ListView {
 			id : gameObjectsListView;
-			width: 100; height: 100
+			width: parent.width; height: 100
 
+			clip : true;
 			model: gameObject;
+			
+			focus : true;
 			delegate: Rectangle {
 
-				width: gameObjectUIContainer.width;
+				width: gameObjectUIContainer.width - 10;
 				height: 20
-				color : "#3E393A";
+				color : ListView.isCurrentItem ?  "#81ACD8": "#3E393A";
 				radius: 3
+				x: 4;
+				property alias textColor : nameText.color;
+				anchors.leftMargin : 3;
+				anchors.rightMargin : 3;
 
-				Text { 
-					text: model.modelData.name 
-					
-					}
-				MouseArea
-				{
-					anchors.fill: parent
-					hoverEnabled : true;
-					onEntered : 
-					{
-						parent.color = "#efefef";
-				
-					}
-					onExited : parent.color = "#3E393A";
+				Text 
+				{ 
+					id : nameText
+					text:  "   "+ model.modelData.name 
+					color:(gameObjectsListView.currentIndex == index) ?   "#3E393A" : "#81ACD8" 
+					font.pixelSize : 16;
+					//color : ""
+
 				}
-			}
-		}
-	}
-	/*
-Rectangle
-{
-	id: gameObjectUIContainer
-	anchors.top : searchBar.bottom;
-	anchors.topMargin : 20;
-    width : parent.width;
-	anchors.leftMargin : 200;
-
-Column {
-    spacing: 2
-	id : gameObjects
-
-    Repeater {
-        model: ["Enterprise", "Colombia", "Challenger", "Discovery", "Endeavour", "Atlantis"]
-
-        Rectangle {
-            width: gameObjectUIContainer.width;
-            height: 20
-			color : "#3E393A";
-            radius: 3
-
-
-            Text {
-               property int index : index;
-                text:  "   "+ modelData
 				MouseArea
 				{
 					anchors.fill: parent
 					hoverEnabled : true;
-					onEntered : 
+					onClicked : 
 					{
-						parent.color = "#efefef";
+						gameObjectsListView.currentItem.color = "#3E393A";
+						gameObjectsListView.currentItem.textColor = "#81ACD8";
+
+						parent.color = "#81ACD8"
+						parent.textColor = "#3E393A"
+						gameObjectsListView.currentIndex = index;
+						//modelChanged(model.modelData.index,model.modelData.type);
+						modelChanged(model.modelData.index,model.modelData.type);
 						
 					}
-					onExited : parent.color = "black";
+					onEntered : 
+					{
+						if(gameObjectsListView.currentIndex != index)
+						{
+							parent.color = "#efefef";
+							nameText.color = "#3E393A";
+						}
+					}
+					onExited : 
+					{
+						if(gameObjectsListView.currentIndex != index)
+						{
+							parent.color =  "#3E393A";
+							nameText.color =  "#81ACD8" 
+						}
+					}
 				}
-            }
-        }
-    }
-}
-}*/
-}
+
+			}
+			
+			}
+	
+		}
+				
+	}

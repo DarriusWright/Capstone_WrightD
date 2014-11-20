@@ -14,6 +14,8 @@ Rectangle
 	property alias value : slider.value;
 	property var onSliderValueChanged : (function(){})
 	property alias sliderWidth : slider.width;
+	property alias fontSize : label.font.pixelSize;
+
 
 	signal valueSliderChanged(int value)
 
@@ -27,9 +29,11 @@ Rectangle
 	Text
 	{
 		id: label
+		anchors.left: slider.right
+		anchors.leftMargin : 10;
 		text : "1"
-		anchors.leftMargin : 300;
-		anchors.rightMargin : 300;
+		color : "#81ACD8" ;
+		font.pixelSize : 16;
 		horizontalAlignment : Text.AlignHCenter;
 		verticalAlignment : Text.AlignVCenter;
 	}
@@ -42,8 +46,6 @@ Rectangle
 		maximumValue : 10.0;
 		minimumValue  :0.0;
 		updateValueWhileDragging :true;
-		anchors.left: label.right
-		anchors.leftMargin : 10;
 		
 		stepSize: 1.0;
 		value : 1.0;

@@ -5,7 +5,7 @@ GameObject::GameObject()
 
 }
 
-GameObject::GameObject(QString name, Type type, int index): m_name(name), m_type(type), m_index(index)
+GameObject::GameObject(QString name, Type type, int index): m_name(name), m_type((int)type), m_index(index)
 {
 
 }
@@ -40,9 +40,9 @@ qint32 GameObject::index()const
 	return m_index;
 }
 
-Type GameObject::type()const
+int GameObject::type()const
 {
-	return m_type;
+	return (int)m_type;
 
 }
 

@@ -37,7 +37,7 @@ FocusScope  {
 	ColorOverlay {
         anchors.fill: clear
         source: clear
-        color: "#81ACD8"  // make image like it lays under red glass 
+        color: "#81ACD8"  
     }
 
     states: State  {

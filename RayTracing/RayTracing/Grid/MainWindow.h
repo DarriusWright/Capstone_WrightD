@@ -93,6 +93,7 @@ private slots:
 	void changeCameraType(int);
 	void changeBounceValue(int);
 	void changeName();
+	void gameObjectSelectionChanged(int, int);
 
 private:
 	void addObject();

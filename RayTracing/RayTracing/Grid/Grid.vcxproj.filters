@@ -117,5 +117,20 @@
     <None Include="QMLComponents\TextSlider.qml" />
     <None Include="QMLComponents\Float3Slider.qml" />
     <None Include="QMLComponents\Searchbox.qml" />
+    <None Include="QMLComponents\ScrollBar.qml" />
+    <None Include="QMLComponents\CollapsiblePanel.qml" />
+    <None Include="QMLComponents\componentCreation.js" />
+    <None Include="QMLComponents\LightPanel.qml" />
+    <None Include="QMLComponents\DiffuseControl.qml" />
+    <None Include="QMLComponents\TransparentControl.qml" />
+    <None Include="QMLComponents\SpecularControl.qml" />
+    <None Include="QMLComponents\ColorControl.qml" />
+    <None Include="QMLComponents\MeshPanel.qml" />
+    <None Include="QMLComponents\CameraPanel.qml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="C:\Users\dwright\Desktop\CollapsiblePanel\qml\CollapsiblePannel\images\arrowdown.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

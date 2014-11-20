@@ -19,6 +19,7 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render),
 	
 //	qmlRegisterType<GameObject>("Custom", 1,0,"GameObject");
 //	qmlRegisterType<GameObjectContainer>("Custom", 1,0,"GameObjectContainer");
+
 	qmlRegisterUncreatableType<GameObject>("GameObject", 1,0, "GameObject","Instanciated C++ side !");
 	//for()
 
@@ -194,8 +195,8 @@ void MainWindow::initializeViews()
 	QQuickView * rightView = new QQuickView();
 	rightContainer = QWidget::createWindowContainer(rightView, this);
 	rightView->setSource(QUrl("right.qml"));
-	rightContainer->setMinimumSize(300, 200);
-	rightContainer->setMaximumSize(300, 700);
+	rightContainer->setMinimumSize(500, 200);
+	rightContainer->setMaximumSize(500, 700);
 	rightContainer->setFocusPolicy(Qt::TabFocus);
 	rightQml =rightView->rootObject();
 
@@ -229,6 +230,13 @@ void MainWindow::initializeViews()
 
 }
 
+void MainWindow::gameObjectSelectionChanged(int index, int type)
+{
+	qDebug() << index << ", " << type; 
+	QVariant returnedValue;
+	QMetaObject::invokeMethod(&rightComponent, "updateType",Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant,type));
+}
+
 void MainWindow::connectSignals()
 {
 	//connect(leftQml, SIGNAL(changeModelName()), this,SLOT(changeName()));
@@ -237,7 +245,7 @@ void MainWindow::connectSignals()
 
 void MainWindow::connectQMLSignals()
 {
-	//connect(leftQml, SIGNAL(bounceValueChanged(int)), this , SLOT(changeBounceValue(int)));
+	connect(leftQml, SIGNAL(modelChanged(int, int)), this , SLOT(gameObjectSelectionChanged(int,int)));
 	connect(rightQml, SIGNAL(changeModelName()), this,SLOT(changeName()));
 
 }

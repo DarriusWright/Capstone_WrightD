@@ -34,16 +34,16 @@ QT_MOC_LITERAL(1, 11, 11),
 QT_MOC_LITERAL(2, 23, 0),
 QT_MOC_LITERAL(3, 24, 4),
 QT_MOC_LITERAL(4, 29, 4),
-QT_MOC_LITERAL(5, 34, 4),
-QT_MOC_LITERAL(6, 39, 7),
-QT_MOC_LITERAL(7, 47, 1),
-QT_MOC_LITERAL(8, 49, 8),
-QT_MOC_LITERAL(9, 58, 5),
-QT_MOC_LITERAL(10, 64, 7),
+QT_MOC_LITERAL(5, 34, 7),
+QT_MOC_LITERAL(6, 42, 1),
+QT_MOC_LITERAL(7, 44, 8),
+QT_MOC_LITERAL(8, 53, 5),
+QT_MOC_LITERAL(9, 59, 7),
+QT_MOC_LITERAL(10, 67, 4),
 QT_MOC_LITERAL(11, 72, 1)
     },
-    "GameObject\0nameChanged\0\0type\0Type\0"
-    "name\0setName\0n\0setIndex\0index\0setType\0"
+    "GameObject\0nameChanged\0\0type\0name\0"
+    "setName\0n\0setIndex\0index\0setType\0Type\0"
     "t"
 };
 #undef QT_MOC_LITERAL
@@ -66,27 +66,27 @@ static const uint qt_meta_data_GameObject[] = {
 
  // methods: name, argc, parameters, tag, flags
        3,    0,   50,    2, 0x02 /* Public */,
-       5,    0,   51,    2, 0x02 /* Public */,
-       6,    1,   52,    2, 0x02 /* Public */,
-       8,    1,   55,    2, 0x02 /* Public */,
-      10,    1,   58,    2, 0x02 /* Public */,
-       9,    0,   61,    2, 0x02 /* Public */,
+       4,    0,   51,    2, 0x02 /* Public */,
+       5,    1,   52,    2, 0x02 /* Public */,
+       7,    1,   55,    2, 0x02 /* Public */,
+       9,    1,   58,    2, 0x02 /* Public */,
+       8,    0,   61,    2, 0x02 /* Public */,
 
  // signals: parameters
     QMetaType::Void,
 
  // methods: parameters
-    0x80000000 | 4,
+    QMetaType::Int,
     QMetaType::QString,
-    QMetaType::Void, QMetaType::QString,    7,
-    QMetaType::Void, QMetaType::Int,    9,
-    QMetaType::Void, 0x80000000 | 4,   11,
+    QMetaType::Void, QMetaType::QString,    6,
+    QMetaType::Void, QMetaType::Int,    8,
+    QMetaType::Void, 0x80000000 | 10,   11,
     QMetaType::Int,
 
  // properties: name, type, flags
-       3, 0x80000000 | 4, 0x00095009,
-       5, QMetaType::QString, 0x00495103,
-       9, QMetaType::Int, 0x00095001,
+       3, QMetaType::Int, 0x00095001,
+       4, QMetaType::QString, 0x00495103,
+       8, QMetaType::Int, 0x00095001,
 
  // properties: notify_signal_id
        0,
@@ -106,8 +106,8 @@ void GameObject::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         GameObject *_t = static_cast<GameObject *>(_o);
         switch (_id) {
         case 0: _t->nameChanged(); break;
-        case 1: { Type _r = _t->type();
-            if (_a[0]) *reinterpret_cast< Type*>(_a[0]) = _r; }  break;
+        case 1: { int _r = _t->type();
+            if (_a[0]) *reinterpret_cast< int*>(_a[0]) = _r; }  break;
         case 2: { QString _r = _t->name();
             if (_a[0]) *reinterpret_cast< QString*>(_a[0]) = _r; }  break;
         case 3: _t->setName((*reinterpret_cast< const QString(*)>(_a[1]))); break;
@@ -166,7 +166,7 @@ int GameObject::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
       else if (_c == QMetaObject::ReadProperty) {
         void *_v = _a[0];
         switch (_id) {
-        case 0: *reinterpret_cast< Type*>(_v) = type(); break;
+        case 0: *reinterpret_cast< int*>(_v) = type(); break;
         case 1: *reinterpret_cast< QString*>(_v) = name(); break;
         case 2: *reinterpret_cast< qint32*>(_v) = index(); break;
         default: break;

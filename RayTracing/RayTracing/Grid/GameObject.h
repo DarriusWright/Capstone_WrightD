@@ -13,7 +13,7 @@ class GameObject : public QObject
 {
 	Q_OBJECT
 	Q_ENUMS(Type)
-	Q_PROPERTY(Type type READ type)
+	Q_PROPERTY(int type READ type)
 	Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
 	Q_PROPERTY(qint32 index READ index)
 
@@ -25,7 +25,7 @@ public:
 
 
 
-	Q_INVOKABLE Type type()const;
+	Q_INVOKABLE int type()const;
 	Q_INVOKABLE QString name()const;
 	Q_INVOKABLE void setName(const QString & n);
 	Q_INVOKABLE void setIndex(const int & index);
@@ -37,7 +37,7 @@ signals:
 private :
 	QString m_name;
 	qint32 m_index;
-	Type m_type;
+	int m_type;
 
 };
 

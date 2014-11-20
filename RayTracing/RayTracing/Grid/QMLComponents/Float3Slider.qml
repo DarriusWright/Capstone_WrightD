@@ -6,6 +6,8 @@ import "../QMLComponents" as Components
 
 Rectangle
 {
+	color : "#3E393A";
+
 	property alias xMin : xSlider.min;
 	property alias yMin : ySlider.min;
 	property alias zMin : zSlider.min;
@@ -17,6 +19,11 @@ Rectangle
 	property alias xStep  : xSlider.step;
 	property alias yStep  : ySlider.step;
 	property alias zStep  : zSlider.step;
+	
+	property alias xValue  : xSlider.value;
+	property alias yValue  : ySlider.value;
+	property alias zValue  : zSlider.value;
+	
 	property var onSlidersValueChanged : (function(){})
 	property alias text : label.text;
 
@@ -52,12 +59,20 @@ Rectangle
 		ySlider.step = y;
 		zSlider.step = z;
 	}
+
+	function setValues(x,y,z)
+	{
+		xValue = x;
+		yValue = y;
+		zValue = z;
+	}
 	
 	Text
 	{
 		id: label
-		text : "1"
-		
+		text : "Default"
+		color :"#81ACD8" ;
+		font.pixelSize: 16;
 		horizontalAlignment : Text.AlignHCenter;
 		verticalAlignment : Text.AlignVCenter;
 	}
@@ -70,11 +85,10 @@ Rectangle
 	anchors.left: label.right
 	Components.TextSlider
 	{
-	anchors.leftMargin : 200;
-		anchors.rightMargin : 600;
+
 		id : xSlider;
 		text : "x";
-		width : 80;
+		width : 140;
 		sliderWidth : 50;
 
 		
@@ -87,7 +101,8 @@ Rectangle
 	{
 		id : ySlider;
 		text : "y";
-		width : 80;
+		width : 140;
+	
 		sliderWidth : 50;
 
 
@@ -100,7 +115,8 @@ Rectangle
 	{
 		id : zSlider;
 		text : "z";
-		width: 80;
+		width : 140;
+
 		sliderWidth : 50;
 
 		onSliderValueChanged : (function(){
