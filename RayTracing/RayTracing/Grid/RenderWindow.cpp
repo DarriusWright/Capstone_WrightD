@@ -216,7 +216,7 @@ void RenderWindow::addMesh(std::string fileName, glm::vec3 position , MaterialTy
 
 		o.triangleIndex = triangles.size();
 		o.meshIndex = meshIndex;
-		//o.index = objects.size();
+		o.index = objects.size();
 		//o.material = material;
 		objects.push_back(o);
 		triangles.push_back(tri);
@@ -327,7 +327,14 @@ void RenderWindow::construct()
 	windowHeight = height();
 	readBuffer = new uchar [windowWidth * windowHeight * 4];
 
+
+	Octree root(box.min + ((box.max - box.min)/ 2.0f),box,0);
+	octManager = OctreeManager(root);
+	octManager.insert(objects,meshes);
 	initializeCL();
+	octreeMem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Octree) * octManager.octreeNodes.size(),&octManager.octreeNodes[0], &err );
+
+
 
 
 	QImage r(readBuffer,windowWidth,windowHeight,QImage::Format::Format_RGBA8888);
@@ -724,8 +731,8 @@ void RenderWindow::handleKeyInput()
 }
 void RenderWindow::initializeProgram()
 {
-	std::string files []  = { "Kernels/kernelHelperFunctions.opencl","Kernels/drawScene.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl",  "Kernels/photonMapping.opencl"};
-	program = buildProgram(files, 6);
+	std::string files []  = { "Kernels/math.opencl", "Kernels/random.opencl", "Kernels/structs.opencl","Kernels/kernelHelperFunctions.opencl","Kernels/drawScene.opencl", "Kernels/generateSceneBBox.opencl","Kernels/initializeCells.opencl","Kernels/findObjectCells.opencl",  "Kernels/photonMapping.opencl"};
+	program = buildProgram(files, 9);
 	drawSceneKernel = clCreateKernel(program, "drawScene", &err);
 	drawShadowRaysKernel = clCreateKernel(program, "drawShadowRays", &err);
 	drawReflectionRaysKernel = clCreateKernel(program, "drawReflectionRays", &err);

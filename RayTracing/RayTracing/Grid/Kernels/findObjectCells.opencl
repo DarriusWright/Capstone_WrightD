@@ -9,7 +9,7 @@ __kernel void findObjectCells(__global Object * objects,__global BBox * box,
 	BBox oBox = objects[objectIndex].box;
 	float3 position = meshes[objects[objectIndex].meshIndex].position.xyz;
 	int3 cellMin = positionToVoxel(oBox.min + position,widthInverse, numberOfVoxels,box[0] );
-	int3 cellMax = positionToVoxel(oBox.max+ position,widthInverse, numberOfVoxels,box[0] );
+	int3 cellMax = positionToVoxel(oBox.max + position,widthInverse, numberOfVoxels,box[0] );
 
 	for(int z = cellMin.z; z <= cellMax.z; z++)
 	{

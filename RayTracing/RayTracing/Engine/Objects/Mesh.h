@@ -1,3 +1,4 @@
+#pragma once
 #ifdef MAC
 #include <OpenCL/cl.h>
 #else  

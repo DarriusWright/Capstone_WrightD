@@ -7,17 +7,18 @@ Rectangle
 {
 
 	signal lookAtChanged(real x,real y,real z);
-	signal distanceChanged(real value);
+	signal distanceValueChanged(real value);
 
-	property alias setLookAt : lookAt.setValues:
+	property var setLookAt :(function(x,y,z){ lookAt.setValues(x,y,z) });
 	property alias distance : distanceSlider.value;
+	property alias text : lookAt.text;
 
 
 	Components.Float3Slider
 	{
 		id: lookAt;
 		Component.onCompleted : {
-			label.text = text
+		
 			setMin(-10.0,-10.0,-10.0);
 			setMax(10.0,10.0,10.0);
 			setStep(1,1,1);
@@ -25,7 +26,7 @@ Rectangle
 
 		onSlidersValueChanged : 
 		{
-			lootAtChanged(lookAt.xValue, lookAt.yValue, lookAt.zValue);
+			lookAtChanged(lookAt.xValue, lookAt.yValue, lookAt.zValue);
 		}
 
 	}
@@ -35,11 +36,11 @@ Rectangle
 		id : distanceSlider;
 		min : 0.0;
 		max : 1000.0;
-		anchors.top = lookAt.bottom;
+		anchors.top : lookAt.bottom;
 
 		onSliderValueChanged : 
 		{
-			distanceChanged(distanceSlider.value)
+			distanceValueChanged(distanceSlider.value)
 		}
 	}
 }

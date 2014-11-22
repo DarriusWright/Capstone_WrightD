@@ -34,6 +34,7 @@
 #include "GameObject.h"
 #include <QtQml\qqmllist.h>
 #include "GameObjectContainer.h"
+#include "Octree.h"
 
 using std::vector;
 using std::cout;
@@ -93,6 +94,7 @@ public:
 
 	
 private:
+	OctreeManager octManager;
 	glm::vec4 backgroundColor;
 	float currentTime;
 	int randomInt;
@@ -228,6 +230,7 @@ private:
 
 	//update release mem
 	cl_mem objectIndicesMem;
+	cl_mem octreeMem;
 	cl_mem objectPhotonCount;
 	cl_mem cellIndicesMem;
 	cl_mem cellIncrementsMem;

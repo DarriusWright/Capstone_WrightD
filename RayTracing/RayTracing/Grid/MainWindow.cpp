@@ -20,7 +20,7 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render),
 //	qmlRegisterType<GameObject>("Custom", 1,0,"GameObject");
 //	qmlRegisterType<GameObjectContainer>("Custom", 1,0,"GameObjectContainer");
 
-	qmlRegisterUncreatableType<GameObject>("GameObject", 1,0, "GameObject","Instanciated C++ side !");
+	qmlRegisterUncreatableType<GameObject>("GameObject", 1,0, "GameObject","Instantiated C++ side !");
 	//for()
 
 	QVariantList listElements;
@@ -192,7 +192,7 @@ MainWindow::~MainWindow(void)
 
 void MainWindow::initializeViews()
 {
-	QQuickView * rightView = new QQuickView();
+	 rightView = new QQuickView();
 	rightContainer = QWidget::createWindowContainer(rightView, this);
 	rightView->setSource(QUrl("right.qml"));
 	rightContainer->setMinimumSize(500, 200);
@@ -201,7 +201,7 @@ void MainWindow::initializeViews()
 	rightQml =rightView->rootObject();
 
 
-	QQuickView * leftView = new QQuickView();
+	 leftView = new QQuickView();
 	leftContainer = QWidget::createWindowContainer(leftView, this);
 	leftView->setSource(QUrl("left.qml"));
 	
@@ -234,7 +234,10 @@ void MainWindow::gameObjectSelectionChanged(int index, int type)
 {
 	qDebug() << index << ", " << type; 
 	QVariant returnedValue;
-	QMetaObject::invokeMethod(&rightComponent, "updateType",Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant,type));
+	QQmlComponent testRight(&engine, "right.qml");
+	QObject * object = testRight.create();
+	//QMetaObject::invokeMethod(rightView, "updateType",Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant,type));
+	QMetaObject::invokeMethod(object, "updateType",Q_RETURN_ARG(QVariant, returnedValue), Q_ARG(QVariant,type));
 }
 
 void MainWindow::connectSignals()

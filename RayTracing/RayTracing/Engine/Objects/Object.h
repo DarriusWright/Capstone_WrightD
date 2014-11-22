@@ -14,6 +14,7 @@ public :
 
 	BBox box;
 	cl_int triangleIndex;
+	cl_uint index;
 	cl_uint meshIndex;
-	float d [2];
+	float d [1];
 };

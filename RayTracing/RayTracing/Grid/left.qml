@@ -36,6 +36,7 @@ Rectangle
 		width : parent.width;
 		anchors.leftMargin : 200;
 
+
 		ListView {
 			id : gameObjectsListView;
 			width: parent.width; height: 100

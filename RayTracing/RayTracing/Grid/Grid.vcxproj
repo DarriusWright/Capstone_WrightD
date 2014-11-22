@@ -104,6 +104,7 @@
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="GameObjectContainer.h" />
     <ClInclude Include="helper_math.h" />
+    <ClInclude Include="Octree.h" />
     <ClInclude Include="UI\UIWidget.h" />
     <ClInclude Include="UI\IntSlider.h" />
     <ClInclude Include="UI\Float3Slider.h" />

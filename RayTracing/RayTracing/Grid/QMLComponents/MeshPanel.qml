@@ -11,11 +11,16 @@ Rectangle
 	color : "#3E393A";
 
 	id : root;
-	property var materialControls  : MyScript.createObjects("TransparentControl", materialUI);
+	function completed(object)
+	{
+		object.anchors.top = materialUI.anchors.bottom;
+	}
+
+	property var materialControls  : MyScript.createObjects("TransparentControl", materialUI , materialUI);
 
 	Component.onCompleted : 
 	{
-
+	
 	}
 
 
@@ -36,6 +41,7 @@ Rectangle
 		}
 		ComboBox
 		{
+			id : materialChoice;
 			y: 20;
 			anchors.left : materialText.right;
 			currentIndex : 0;
@@ -68,8 +74,9 @@ Rectangle
 						materialControls =  MyScript.createObjects("TransparentControl", materialUI);
 
 					}
-					//materialControls.parent = root;
-					//materialControls.anchors.top = materialUI.bottom;
+					materialControls.parent = root;
+					materialControls.anchors.top = materialChoice.bottom;
+					
 					
 				 }
 

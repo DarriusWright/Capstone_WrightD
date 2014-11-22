@@ -8,9 +8,7 @@ Rectangle
 {
 	id : transparentControl;
 	color : "#3E393A";
-	x : 0;
-	y : 0;
-	anchors.leftMargin : 200;
+
 	signal transparentColorChanged(real x,real y,real z)
 	signal indexOfRefractionChanged(real value)
 
@@ -26,15 +24,15 @@ Rectangle
 		id : refractionIndex;
 		min : 0.0;
 		max : 3.0;
+		step : 0.1;
 		text: "Index Of Refraction";
 		//width : 100;
 		height :100;
 		anchors.top: transparentColor.bottom;
 
-		onSliderValueChanged : 
-		{
+		onSliderValueChanged :(function() {
 			indexOfRefractionChanged( value);
-		}
+		})
 	}
 
 	Components.ColorControl

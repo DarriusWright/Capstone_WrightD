@@ -25,7 +25,7 @@ Rectangle
 		//valueSliderChanged.connect(onSliderValueChanged);
 	}
 
-
+	
 	Text
 	{
 		id: label
@@ -34,13 +34,15 @@ Rectangle
 		text : "1"
 		color : "#81ACD8" ;
 		font.pixelSize : 16;
+		//width : 100;
+		//height : 32;
 		horizontalAlignment : Text.AlignHCenter;
 		verticalAlignment : Text.AlignVCenter;
 	}
 
 	Slider
 	{
-	
+
 		id: slider;
 		
 		maximumValue : 10.0;

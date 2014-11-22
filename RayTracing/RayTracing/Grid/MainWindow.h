@@ -23,6 +23,7 @@
 #include <QtQml\qqmlcomponent.h>
 #include <QtQuick\qquickitem.h>
 #include <QtQml\qqmlapplicationengine.h>
+#include <QtQuick\qquickview.h>
 
 
 class MainWindow : public QMainWindow
@@ -87,6 +88,9 @@ private:
 
 	float radius;
 	QTimer updateTimer;
+	QQuickView * rightView;
+	QQuickView * leftView;
+
 
 private slots:
 	void changeLightType(int);

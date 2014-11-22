@@ -8,6 +8,7 @@ Rectangle
 {
 	color : "#3E393A";
 
+
 	property alias xMin : xSlider.min;
 	property alias yMin : ySlider.min;
 	property alias zMin : zSlider.min;
@@ -73,9 +74,13 @@ Rectangle
 		text : "Default"
 		color :"#81ACD8" ;
 		font.pixelSize: 16;
+		//width : 50;
+		//height: 16;
+
 		horizontalAlignment : Text.AlignHCenter;
 		verticalAlignment : Text.AlignVCenter;
 	}
+	
 
 
 
@@ -88,8 +93,8 @@ Rectangle
 
 		id : xSlider;
 		text : "x";
-		width : 140;
-		sliderWidth : 50;
+		width : 140; // safe
+		sliderWidth : 50; //safe
 
 		
 		onSliderValueChanged : (function()

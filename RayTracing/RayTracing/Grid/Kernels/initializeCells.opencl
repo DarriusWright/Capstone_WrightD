@@ -6,7 +6,7 @@ __kernel void initializeCells(__global Object * objects,__global BBox * box,__gl
 	float3 position = meshes[objects[objectIndex].meshIndex].position.xyz;
 
 	int3 cellMin = positionToVoxel(objects[objectIndex].box.min + position,widthInverse, numberOfVoxels,box[0] );
-	int3 cellMax = positionToVoxel(objects[objectIndex].box.max+ position,widthInverse, numberOfVoxels,box[0] );
+	int3 cellMax = positionToVoxel(objects[objectIndex].box.max + position,widthInverse, numberOfVoxels,box[0] );
 	float totalVoxels = numberOfVoxels.x * numberOfVoxels.y * numberOfVoxels.z;
 	for(int z = cellMin.z; z <= cellMax.z; z++)
 	{

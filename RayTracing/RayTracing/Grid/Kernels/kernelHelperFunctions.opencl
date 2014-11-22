@@ -1,195 +1,3 @@
-#pragma OPENCL EXTENSION cl_khr_fp64: enable
-
-__constant float epsilion = 0.00001f;
-__constant float airIndex = 1.000293f;
-__constant uint DIRECTIONAL_LIGHT = 0;
-__constant uint POINT_LIGHT = 1;
-__constant int TRIANGLE = 0;
-__constant int SPHERE = 0;
-__constant uint PINHOLE_CAMERA = 0;
-__constant uint THINLENS_CAMERA = 1;
-__constant uint FISHEYE_CAMERA = 2;
-__constant uint SPHERICAL_CAMERA = 3;
-__constant uint STEREO_CAMERA = 4;
-__constant uint DIFFUSE = 0;
-__constant uint SPECULAR = 1;
-__constant uint TRANS = 2;
-
-__constant float PI = 3.1415926535f;//...
-__constant float PI_1 = 1.0f/3.1415926535f;
-
-typedef struct
-{
-	float3 color;
-	float3 reflection;
-}BRDFRet;
-
-typedef struct BRDF
-{
-	float kd;
-	float3 cd;
-	uint type;
-}BRDF;
-
-typedef struct
-{
-	float3 min;
-	float3 max;
-}BBox;
-
-typedef struct
-{
-	float3 nextCrossing;
-	float3 deltaT;
-	int3 nextStep;
-	int3 out;
-}StepInfo;
-
-typedef struct
-{
-	StepInfo stepInfo;
-	int3 currentCell;
-	bool continueStep;
-
-}StepReturn;
-
-typedef struct 
-{
-	float4 color;
-	float reflection;
-	float refraction;
-	uint type;
-	float d[1];
-}Material;
-
-typedef struct
-{
-	float3 v0;
-	float3 v1;
-	float3 v2;
-	float3 normal;
-}Triangle;
-
-typedef struct 
-{
-	float3 v0;
-	float3 v1;
-	float3 v2;
-	float3 normal;
-	bool hasIntersection;
-	float distanceFromIntersection;
-
-}TriangleInfo;
-
-typedef struct
-{
-    BBox box;
-    int triangleIndex;
-    uint meshIndex;
-}Object;
-
-typedef struct
-{
-	Material material;
-	float4 position;
-	uint2 indices;
-	float d[2];
-}Mesh;
-
-typedef struct
-{
-	float3 u;
-	float3 v;
-	float3 w;
-	float3 up;
-	float3 lookAt;
-	float4 position;
-	float distance;
-	float zoom;
-	uint type;
-	float focalDistance;
-}Camera;
-
-typedef struct
-{
-	float3 direction;
-	float3 origin;
-}Ray;
-
-typedef struct
-{
-	bool hasIntersection;
-	float distanceToIntersection;
-	float3 intersectionPoint;
-	float3 normal;
-}SphereInfo;
-
-typedef struct
-{
-	Material material;
-	float3 position;
-	float4 direction;
-	int type;
-	float d[3]
-}Light;
-
-typedef struct
-{
-	Material material;
-	float4 position;
-}Sphere;
-
-typedef struct 
-{
-	float minValue;
-	float maxValue;
-	bool hit;
-}HitReturn;
-__constant int OCTREE_MAX_OBJECTS = 5;
-
-typedef struct
-{
-	
-	BBox boundingBox;
-	int childrenIndices[8];
-	int objectIndices[5];
-	float3 origin;
-	int numberOfObjects;
-}Octree;
-
-
-
-float clampFloat(float x)
-{
-	return clamp(x,0.0f,1.0f);
-}
-
-uint toUInt(float x)
-{
-	return clampFloat(x) * 255;//(uint)(pow(clampFloat(x),1.0f/2.2f) * 255 + .5);
-}
-
-
-uint4 toRGBA(float4 color)
-{
-	return (uint4)(toUInt(color.x),toUInt(color.y),toUInt(color.z),toUInt(color.w));
-}
-
-float3 reflect(float3 direction, float3 normal)
-{
-	return direction - normal * 2.0f * dot(normal, direction);
-}
-
-
-uint3 mixUIntColor(uint3 leftColor, uint3 rightColor)
-{
-	float3 colorf = convert_float3(leftColor.xyz) / 255.0f;
-	float3 colorf2 = convert_float3(rightColor.xyz) / 255.0f;
-	float3 finalColor = (colorf * colorf2) * 255.0f;
-
-	return convert_uint3(finalColor);
-}
-
 int3 positionToVoxel(float3 position,  float3 invWidth, float3 numberOfVoxels , BBox sceneBox)
 {
 	float3 dif = (position - sceneBox.min) + 0.0001f;
@@ -217,7 +25,6 @@ int3 findVoxelPosition(int index , float3 cellDimensions)
 	position.x = index - position.y * cellDimensions.x - position.z *cellDimensions.x *cellDimensions.y;
 	return position;
 }
-
 
 StepInfo findStepInfo(int3 currentCell,Ray ray, float minVal, 
 	float maxVal,float3 voxelWidth,BBox box, float3 numberOfVoxels)
@@ -289,8 +96,6 @@ StepInfo findStepInfo(int3 currentCell,Ray ray, float minVal,
 
 	return s;	
 }
-
-
 
 StepReturn stepThroughGrid(StepInfo s, int3 currentCell, float maxVal)
 {
@@ -432,11 +237,6 @@ TriangleInfo triangleCollision(Ray ray, Triangle triangle)
 	return tri;
 }
 
-uint4 getColor()
-{
-	return (uint4)(102,32,34,255);
-}
-
 bool insideBBox(float3 origin,float3 minPoint, float3 maxPoint)
 {
 	return (origin.x >= minPoint.x && origin.x <= maxPoint.x) &&
@@ -462,7 +262,6 @@ int maxExtent(BBox box)
 	return (d.x > d.y && d.x > d.z) ? 0 : (d.y > d.z) ? 1 : 2;
 }
 
-
 BBox createCellBox(int index, float3 numberOfVoxels, float3 delta, BBox box)
 {
 	BBox retBox;
@@ -470,7 +269,6 @@ BBox createCellBox(int index, float3 numberOfVoxels, float3 delta, BBox box)
 	retBox.max = retBox.min  + (delta / numberOfVoxels);
 	return retBox;
 }
-
 
 HitReturn hitBBox(Ray ray,float3 minPoint, float3 maxPoint)
 {
@@ -544,75 +342,8 @@ HitReturn hitBox(Ray ray, BBox box)
 {
 	return hitBBox(ray,box.min, box.max);
 }
-long inline nextPowerOfTwo(long number)
-{
-	return pow(2.0, ceil(log((double)number)/log(2.0)));
-}
-float absF(float x)
-{
-	return x < 0 ? x * -1.0f : x;
-}
-float randFloat(long seed)
-{
-	//Java's implementation
-	long randomNumber = ((seed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1)) ;
-	long randomNumber2 = (((seed + seed) * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1)) ;
-	
-	long minNum = min(randomNumber, randomNumber2);
-	long maxNum = max(randomNumber, randomNumber2);
 
 
-	float result =  (float)minNum/ (float)maxNum;//nextPowerOfTwo(randomNumber) ;
-	return result;
-}
-float3 mapToHemiSphere(float2 samplePoint, float e)
-{
-	float cosPhi = cos(2.0f * PI * samplePoint.x);
-	float sinPhi = sin(2.0f * PI * samplePoint.x);
-	float cosTheata = pow((1.0f - samplePoint.y), 1.0f / (e + 1.0f)) ;
-	float sinTheata = sqrt(1.0f - cosTheata * cosTheata) ;
-
-	return (float3)(sinTheata * cosPhi, sinTheata * sinPhi, cosTheata);
-
-}
-
-float2 mapToDisk(float2 samplePoint)
-{
-	float r,phi;
-
-	if(samplePoint.x > -samplePoint.y)
-	{
-		if(samplePoint.x > samplePoint.y)
-		{
-			r = samplePoint.x;
-			phi = samplePoint.y/ samplePoint.x;
-		}
-		else
-		{
-			r = samplePoint.y;
-			phi = 2 - samplePoint.x/ samplePoint.y;
-		}
-	}
-	else
-	{
-		if(samplePoint.x < samplePoint.y)
-		{
-			r = -samplePoint.x;
-			phi = 4 + samplePoint.y/ samplePoint.x;
-		}
-		else
-		{
-			r = -samplePoint.y;
-			if(samplePoint.y != 0.0f)
-				phi = 6 - samplePoint.x/samplePoint.y;
-			else
-				phi = 0.0f;
-		}
-	}
-	phi *= PI/4.0f;
-
-	return (float2)(r* cos(phi),r * sin(phi));
-}
 Ray generateRay(int2 pixelLocation, int width, int height, Camera camera, int2 dim, int sampleNumber , long seed)
 {
 	Ray ray;
@@ -677,45 +408,7 @@ SphereInfo sphereIntersection(Ray ray, float3 position, float radius)
 
 	return s;
 }
-uint4 adsLight(Light light, Material material, Camera camera, float3 intersectionPoint,  float3 normal)
-{
-	float3 lightVector ;//=normalize(light.position - intersectionPoint);// normalize( light.position.xyz - object.position.xyz);
-	lightVector = (light.type == DIRECTIONAL_LIGHT) ? normalize(light.direction.xyz) : normalize(light.position - intersectionPoint);
-	float lightDotNormal = max(dot(lightVector.xyz,normal.xyz), 0.0f);
-	float diffuseFactor = dot(normal,lightVector);
-	float3 diffuse ;//= light.material.diffuse.xyz * max(diffuseFactor, 0.0f) * material.diffuse.xyz;// * (light.type == POINT_LIGHT) ? attenuation : 1.0f;
-	float3 ambient ;//= material.ambient.xyz * light.material.ambient.xyz;
 
-	//float3 s = dot(normal, lightVector) * normal - lightVector;
-	//float3 r =  (2.0f*(dot(normal, lightVector) * normal)) - lightVector;
-	//float3 v = intersectionPoint - camera.position;
-	//r = normalize(r);
-	//v = normalize(v);
-	//s = normalize(s);
-
-	//if(dot(r,v) < 0)
-	//{
-	//	r = (float3)(0.0f,0.0f,0.0f);
-	//	v = (float3)(0.0f,0.0f,0.0f);
-	//}
-	//float specularPower = pow(dot(v,r), material.specular.w);
-
-	//float3 specular = light.material.specular.xyz * specularPower * material.specular;// * attenuation;//* (light.type == POINT_LIGHT) ? attenuation : 1.0f;
-	//if(light.type == POINT_LIGHT)
-	//{
-	//	float attenuation = clamp((1.0f - length(lightVector)/ light.direction.w) , 0.0f, 1.0f);
-	//	diffuse *= attenuation;
-	//	specular *= attenuation;
-	//}
-	
-	float3 finalColor =   ambient + diffuse;// + specular;
-	
-	return (uint4)((convert_uint3(finalColor * 255.0f)),255);	
-}
-uint3 convertColor(float4 color)
-{
-	return convert_uint3(color.xyz * 255.0f);
-}
 bool bboxCollided(BBox b1 , BBox b2)
 {
 	return (b1.min.x <= b2.min.x + fabs(b2.min.x - b2.max.x) &&
@@ -738,15 +431,50 @@ bool bboxObjectCollided(BBox b1 , Mesh m, Object o1)
 	return bboxCollided(b1,box);
 
 }
-typedef struct
+
+IntersectionInfoO rayTraceO(Ray ray,Camera camera, 
+	__global Light * light, __global Object * objects, __global Octree * octreeNodes,
+	__global Triangle * triangles,
+	 BBox box, __global Mesh * meshes, 
+	 __local int * depthTrack , __local float * minDepth,
+	 int maxDepth, int originNode)
 {
-	float3 direction;
-	float3 position;
-	float3 color;
-	float distance;
-	int objectIndex;
-	int type;
-}IntersectionInfo;
+	IntersectionInfoO intersect;
+	intersect.distance = -1;
+	int depth = 0;
+	int node = 0;
+	depthTrack[depth] = 0;
+
+    HitReturn hitRet = hitBox( ray,  box);
+
+    bool continueWhile = false;
+    if(hitRet.hit)
+    {
+		while(depth >= 0)
+		{
+			continueWhile = false;
+			int startingIndex = octreeNodes[node].childrenStart;
+			for(int i = depthTrack[depth]; i < startingIndex + 8; i++)
+			{
+				hitRet = hitBox( ray,  octreeNodes[i + startingIndex].boundingBox);
+				if(hitRet.hit && minDepth[depth] > hitRet.minValue && octreeNodes[i].numberOfObjects > 0)
+				{
+					minDepth[depth]  = hitRet.minValue;
+					depthTrack[depth] = i;
+					node = i;
+					depth++;
+					continueWhile = true;
+					break;
+				}
+			}
+			if(continueWhile) continue;
+			node = depthTrack[depth--];
+		}
+		
+	}
+
+	return intersect;
+}
 
 IntersectionInfo rayTrace(Ray ray,Camera camera, 
 	__global int * cellIndices, __global int * objectIndices,

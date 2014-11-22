@@ -8,42 +8,111 @@ import "QMLComponents/componentCreation.js" as MyScript
 Rectangle{
 	signal changeModelName();
 	property int type : 0;
+	property int lastType : 0;
 	anchors.fill: parent;
+	id: root;
 	color : "#3E393A";
-	function updateType(type)
+
+	signal update(int type);
+	
+	Component.onCompleted : 
 	{
-		panel.destory();
+		root.update.connect(updatePanel);
+	}
+
+	property var updatePanel : (function(type)
+	{
+		lightContainer.anim();
+		console.log("animation begin");
+
+		/*
 		if(type == 0)
 		{
-			panel =  MyScript.createObjects("MeshPanel", root);
+			//root.panel =  MyScript.createObjects("MeshPanel", root);
+			meshContainer.opacity  = 1;
 		}
 		else if(type == 1)
 		{
-			panel =  MyScript.createObjects("LightPanel", root);
+			//root.panel =  MyScript.createObjects("LightPanel", root);
+			lightContainer.opacity  = 1;
 
 		}
 		else if(type == 2)
 		{
-			panel =  MyScript.createObjects("CameraPanel", root);
-		}
-		panel.parent = panelContainer;
-		panel.anchors.fill = panelContainer;
-	}
+			//root.panel =  MyScript.createObjects("CameraPanel", root);
+			cameraContainer.opacity  = 1;
 
+		}
+		*/
+	})
+
+
+
+	function updateType(type)
+	{
+	//	cameraContainer.destroy();
+		update(type);
+	//	console.log(type);
+
+	}
 
 
 	Rectangle
 	{
-		id : panelContainer;
+		id : cameraContainer
 		color : "#3E393A";
-		anchors.fill: parent
-		property var panel : MyScript.createObjects("MeshPanel",this);
+		anchors.fill: parent;
+		opacity : 0;
+		Components.CameraPanel
+		{
 
+		}
+	}
+
+	Rectangle
+	{
+		id : lightContainer;
+		property alias animation : animateOpacity;
+		color : "#3E393A";
+		anchors.fill: parent;
+		opacity : 1;
+		property var anim : (function(){animateOpacity.start();console.log(opacity)})
+
+		Components.LightPanel
+		{
+
+		}
+		     MouseArea {
+         anchors.fill: parent
+         onClicked: {
+            console.log("click animate");
+             animateOpacity.start()
+         }
+     }
+
+
+		NumberAnimation {
+         id: animateOpacity
+         target: lightContainer
+         properties: "opacity"
+         from: 1.0
+         to: 0.0
+         loops: Animation.Infinite
+         easing {type: Easing.OutBack; overshoot: 500}
+    }
 
 	}
 
-	Components.MeshPanel
+	Rectangle
 	{
+		id : meshContainer;
+		color : "#3E393A";
+		anchors.fill: parent;
+		opacity: 0 ;
+		Components.MeshPanel
+		{
+
+		}
 
 	}
 
