@@ -441,36 +441,94 @@ IntersectionInfoO rayTraceO(Ray ray,Camera camera,
 {
 	IntersectionInfoO intersect;
 	intersect.distance = -1;
-	int depth = 0;
+
+    HitReturn hitRet = hitBox( ray,  octreeNodes[0].boundingBox);
+    int cheapestDepth = -1;
+    int leafNode = -1;
+    bool continueWhile = true;
+    float minValue = 1000000.0f;
 	int node = 0;
-	depthTrack[depth] = 0;
 
-    HitReturn hitRet = hitBox( ray,  box);
-
-    bool continueWhile = false;
     if(hitRet.hit)
     {
-		while(depth >= 0)
-		{
-			continueWhile = false;
+		//int startingIndex = 1;//octreeNodes[node].childrenStart;
+
+    	while(continueWhile)
+    	{
 			int startingIndex = octreeNodes[node].childrenStart;
-			for(int i = depthTrack[depth]; i < startingIndex + 8; i++)
+
+			bool hitNode = false;
+
+			//do you have any children 
+			if(octreeNodes[node].childrenStart != -1)
 			{
-				hitRet = hitBox( ray,  octreeNodes[i + startingIndex].boundingBox);
-				if(hitRet.hit && minDepth[depth] > hitRet.minValue && octreeNodes[i].numberOfObjects > 0)
+				//if(startingIndex > 73)break;
+				for(int i = startingIndex;i < startingIndex + 8; i++)
 				{
-					minDepth[depth]  = hitRet.minValue;
-					depthTrack[depth] = i;
-					node = i;
-					depth++;
-					continueWhile = true;
+					if(octreeNodes[i].numberOfObjects > 0)
+					{
+						hitRet = hitBox( ray,  octreeNodes[i].boundingBox); 
+						if(hitRet.minValue < minValue)
+						{
+							node = i;
+							hitNode = true;
+						}   
+					}	
+				}
+
+				//0, 8 ,  24(-1)
+				//is it a child
+				if(!hitNode)
+				{
+					continueWhile = false;
+					break;
+				}
+
+				if( octreeNodes[node].childrenStart < 0)
+				{
+					leafNode = node;
+					continueWhile = false;
+					break;
+				}
+			}	
+			else
+			{
+				continueWhile = false;
+			}
+    	}
+
+		bool hasLeaf = leafNode != -1;
+		
+		if(hasLeaf)
+		{
+			float lastDistance = 1000000.0f;
+			float3 normal;
+			int objectColorIndex;
+
+			for(int i = 0 ; i < octreeNodes[leafNode].numberOfObjects; i ++)
+			{		
+				int objectIndex = octreeNodes[leafNode].objectIndices[i];	
+				TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
+				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
+				if(triInfo.hasIntersection && lastDistance  > triInfo.distanceFromIntersection)
+				{
+						//outColor = (uint4)adsLight(objects[objectIndex], light[0], triInfo);
+					lastDistance = triInfo.distanceFromIntersection;
+					normal = -triInfo.normal;
+					objectColorIndex = objectIndex;
 					break;
 				}
 			}
-			if(continueWhile) continue;
-			node = depthTrack[depth--];
+
+			intersect.direction = ray.direction;
+			intersect.position = ray.direction * lastDistance + ray.origin;
+			intersect.distance = lastDistance;
+			intersect.objectIndex = objectColorIndex;
+			intersect.type = TRIANGLE;
+			intersect.octreeNode = leafNode;
+			intersect.endDepth = cheapestDepth;
 		}
-		
+
 	}
 
 	return intersect;
@@ -516,10 +574,6 @@ IntersectionInfo rayTrace(Ray ray,Camera camera,
 		{
 			intersect.direction = ray.direction;
 			intersect.position = ray.direction * lastDistance + ray.origin;
-			float3 intersectionPoint = ray.direction.xyz * lastDistance;
-			//intersect.color.xyz = convert_float3(adsLight(light[0], objects[objectColorIndex].material, camera, intersectionPoint, normal).xyz);
-			//intersect.color.xyz /= 255.0f;
-			intersect.color.xyz = (float3)(0,0,0);
 			intersect.distance = lastDistance;
 			intersect.objectIndex = objectColorIndex;
 			intersect.type = TRIANGLE;

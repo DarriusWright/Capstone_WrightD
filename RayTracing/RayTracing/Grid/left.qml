@@ -8,9 +8,25 @@ import GameObject 1.0
 Rectangle
 {
 	anchors.fill: parent;
-	color : "#3E393A";
+	//color : "#00000000";
 	signal modelChanged(int index, int t);
 
+	
+	 gradient: Gradient {
+            GradientStop {
+                position: 0.0; color: "#3E393A"
+            }
+            GradientStop {
+                position: 1.0; color: "#000000"
+            }
+    }
+	signal numberOfBouncesChanged(int change);
+	signal numberOfSamplesChanged(int change);
+
+	Component.onCompleted: {
+		rayPanel.numberOfBouncesChanged.connect(numberOfBouncesChanged);
+		rayPanel.numberOfSamplesChanged.connect(numberOfSamplesChanged);
+	}
 
 	Rectangle
 	{
@@ -34,8 +50,9 @@ Rectangle
 		anchors.top : searchBar.bottom;
 		anchors.topMargin : 20;
 		width : parent.width;
+		height : parent.height - rayPanel.height;
 		anchors.leftMargin : 200;
-
+		color : "#00000000";
 
 		ListView {
 			id : gameObjectsListView;
@@ -47,9 +64,9 @@ Rectangle
 			focus : true;
 			delegate: Rectangle {
 
-				width: gameObjectUIContainer.width - 10;
+				width:  gameObjectUIContainer.width - 10;
 				height: 20
-				color : ListView.isCurrentItem ?  "#81ACD8": "#3E393A";
+				color : ListView.isCurrentItem ?  "#81ACD8": "#00000000";
 				radius: 3
 				x: 4;
 				property alias textColor : nameText.color;
@@ -71,11 +88,12 @@ Rectangle
 					hoverEnabled : true;
 					onClicked : 
 					{
-						gameObjectsListView.currentItem.color = "#3E393A";
+						gameObjectsListView.currentItem.color = "#00000000";
 						gameObjectsListView.currentItem.textColor = "#81ACD8";
 
 						parent.color = "#81ACD8"
 						parent.textColor = "#3E393A"
+						
 						gameObjectsListView.currentIndex = index;
 						//modelChanged(model.modelData.index,model.modelData.type);
 						modelChanged(model.modelData.index,model.modelData.type);
@@ -93,16 +111,22 @@ Rectangle
 					{
 						if(gameObjectsListView.currentIndex != index)
 						{
-							parent.color =  "#3E393A";
+							parent.color =  "#00000000";
 							nameText.color =  "#81ACD8" 
 						}
 					}
 				}
 
 			}
+
 			
-			}
-	
 		}
-				
-	}
+		Components.RayPanel
+		{
+			id : rayPanel;
+			width : parent.fill;
+			height : 200;
+			anchors.top : parent.bottom;
+		}
+	}			
+}

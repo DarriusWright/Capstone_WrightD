@@ -9,15 +9,25 @@ Rectangle
 {
 	id : colorControl;
 	signal colorChanged(real x,real y,real z)
+	signal colorChanging(real x,real y,real z)
 	anchors.fill : parent
 	property alias text : color.text;
 	
+	function setColor(x,y,z)
+	{
+		color.setValues(x,y,z)
+	}
 
+
+	Component.onCompleted : {
+		
+	}
 
 	Components.Float3Slider
 	{
 		id : color;
-		
+		anchors.topMargin : 50;
+		height : 50
 		Component.onCompleted : 
 		{
 			setMin(0.0,0.0,0.0);
@@ -25,9 +35,9 @@ Rectangle
 			setStep(.1,.1,.1);
 		}
 
-		onSlidersValueChanged : {
-			colorChanged(xValue, yValue,zValue)
-		}
+		onSlidersValueChanged : (function(){
+			colorChanging(xValue, yValue,zValue);
+		})
 	}
 
 }

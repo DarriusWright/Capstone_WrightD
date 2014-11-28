@@ -17,6 +17,7 @@ using std::endl;
 
 static const int OCTREE_MAX_OBJECTS = 5;
 static const int MAX_DEPTH = 20;
+static int MAX_CHILD_START ;
 static int DEPTH_REACHED;
 struct Octree
 {
@@ -48,16 +49,15 @@ struct Octree
 
 	inline bool isLeaf()
 	{
-		return childrenStart == -1;
+		return childrenStart < 0;
 	}
 	
 	BBox boundingBox;
 	int treeObjects[OCTREE_MAX_OBJECTS];
+	glm::vec3 origin;
 	int index;
 	int numberOfObjects;
 	int childrenStart;
-	glm::vec3 origin;
-	float d;
 	int depth;
 
 
@@ -82,7 +82,7 @@ typedef struct
 	*/
 
 
-	void add(const Object object, const std::vector<Mesh> & meshes,std::vector<Octree> & nodes)
+	void add(const Object object,const std::vector<Object> objects, const std::vector<Mesh> & meshes,std::vector<Octree> & nodes)
 	{
 		int nodeIndex = index;
 		nodes[nodeIndex].numberOfObjects++;
@@ -93,8 +93,10 @@ typedef struct
 				int previousSize = nodes.size();
 				//nodes.reserve(nodes.size() + 8);
 
-				int j = previousSize;
+				//int j = previousSize;
+
 				nodes[nodeIndex].childrenStart = previousSize;
+				MAX_CHILD_START =glm::max(nodes[nodeIndex].childrenStart, MAX_CHILD_START);//(nodes[nodeIndex].childrenStart > MAX_CHILD_START)  ? nodes[nodeIndex].childrenStart : MAX_CHILD_START;
 				for (int i = 0; i < 8; i++)
 				{
 
@@ -110,13 +112,22 @@ typedef struct
 					BBox box = {glm::min(nodes[nodeIndex].origin,newBoxDimension) ,0.0f,glm::max(nodes[nodeIndex].origin,newBoxDimension), 0.0f};
 					glm::vec3 newOrigin = nodes[nodeIndex].origin + glm::abs(box.max - box.min)/2.0f;
 					Octree o(newOrigin,box,previousSize + i);
-					o.depth = depth + 1;
+					o.depth = nodes[previousSize-1].depth + 1;
 					o.index = previousSize + i;
 					DEPTH_REACHED = glm::max(DEPTH_REACHED,o.depth);
 					//cout<< "Push Back" << endl; 
 					nodes.push_back(o);
 					
 					//cout<< "If Collision" << endl; 
+
+					for (int objectI = 0; objectI < OCTREE_MAX_OBJECTS; objectI++)
+					{
+						int objectIndex = nodes[nodeIndex].treeObjects[objectI];
+						if(objectBoxCollided(nodes[nodes.size()-1].boundingBox,objects[objectIndex] , meshes[objects[objectIndex].meshIndex]))
+						{
+							nodes[nodes.size()-1].add(objects[objectIndex], objects,meshes,nodes);
+						}
+					}
 
 					if(objectBoxCollided(nodes[previousSize + i].boundingBox,object , meshes[object.meshIndex]))
 					{
@@ -125,6 +136,8 @@ typedef struct
 						nodes[previousSize + i].addObject(object);
 					}
 				}
+
+				
 
 			}
 			else
@@ -137,9 +150,9 @@ typedef struct
 		{
 			for (int i = 0; i < 8; i++)
 			{
-				if(objectBoxCollided(nodes[nodes[nodeIndex].childrenStart + 1].boundingBox,object,meshes[object.meshIndex]))
+				if(objectBoxCollided(nodes[nodes[nodeIndex].childrenStart + i].boundingBox,object,meshes[object.meshIndex]))
 				{
-					nodes[nodes[nodeIndex].childrenStart + 1].add(object,meshes,nodes);
+					nodes[nodes[nodeIndex].childrenStart + i].add(object,objects,meshes,nodes);
 				}
 			}
 		}
@@ -155,7 +168,7 @@ typedef struct
 
 		for (int i = 0; i < objects.size(); i++)
 		{
-			add(objects[i], meshes, nodes);
+			add(objects[i], objects,meshes, nodes);
 		}
 	}
 
@@ -179,7 +192,7 @@ struct OctreeManager
 	{
 		for (int i = 0; i < objects.size(); i++)
 		{
-			octreeNodes[0].add(objects[i], meshes,octreeNodes);
+			octreeNodes[0].add(objects[i],objects, meshes,octreeNodes);
 		}	
 	}
 };

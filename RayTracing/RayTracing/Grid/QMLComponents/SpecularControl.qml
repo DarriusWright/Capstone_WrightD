@@ -9,20 +9,23 @@ Rectangle
 	id : specularControl;
 	signal specularColorChanged(real x,real y,real z)
 
+	function setColor(x,y,z)
+	{
+		specularColor.setColor(x,y,z);
+	}
+
+
+	anchors.topMargin : 50;
+	height : 50
 	Component.onCompleted :
 	{
-		specularColor.colorChanged.connect(specularColorChanged);
-		//specularControl.specularColorChanged.connect()
+		specularColor.colorChanging.connect(specularColorChanged);
 	}
 
 	Components.ColorControl
 	{
 		id : specularColor
 		text: "Color"
-
-		
-
-
 	}
 
 

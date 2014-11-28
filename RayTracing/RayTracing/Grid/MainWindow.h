@@ -24,7 +24,7 @@
 #include <QtQuick\qquickitem.h>
 #include <QtQml\qqmlapplicationengine.h>
 #include <QtQuick\qquickview.h>
-
+#include <QtQml\qqmlproperty.h>
 
 class MainWindow : public QMainWindow
 {
@@ -32,7 +32,10 @@ class MainWindow : public QMainWindow
 public:
 	MainWindow(RenderWindow * render);
 	~MainWindow(void);
-	
+	/*
+	number of samples
+	number of bounces 
+	*/
 
 
 private:
@@ -50,6 +53,7 @@ private:
 	QQuickItem * leftQml;
 	QWidget * rightContainer;
 	QWidget * leftContainer;
+	QObject * rightObject;
 
 	QWidget * mainWidget;
 	RenderWindow * renderer;
@@ -62,47 +66,58 @@ private:
 	//QCheckBox * enableShadows;
 	//QCheckBox * enableReflections;
 	//QCheckBox * enableRefractions;
-	QComboBox * lightSelection;
+	//QComboBox * lightSelection;
 	QComboBox * optimizationSelection;
-	QComboBox * sampleType;
-	FloatSlider * pointLightRadius;
-	FloatSlider * specularPower;
-	Float3Slider * direction;
-	Float3Slider * position;
-	Float3Slider * ambient;
-	Float3Slider * diffuse;
-	Float3Slider * specular;
-	Float3Slider * cameraLookAt;
-	FloatSlider * cameraDistance;
-	FloatSlider * cameraFocalDistance;
-	FloatSlider * cameraRadius;
-	QComboBox * cameraChoice;
+	//QComboBox * sampleType;
+	//FloatSlider * pointLightRadius;
+	//FloatSlider * specularPower;
+	//Float3Slider * direction;
+	//Float3Slider * position;
+	//Float3Slider * ambient;
+	//Float3Slider * diffuse;
+	//Float3Slider * specular;
+	//Float3Slider * cameraLookAt;
+	//FloatSlider * cameraDistance;
+//	FloatSlider * cameraFocalDistance;
+	//FloatSlider * cameraRadius;
+	//QComboBox * cameraChoice;
 
 	IntSlider * sampling;
-	QCheckBox * softShadows;
-	IntSlider * numberOfRefractions;
-	IntSlider * numberOfReflections;
+	//QCheckBox * softShadows;
+	//IntSlider * numberOfRefractions;
+	//IntSlider * numberOfReflections;
 	IntSlider * numberOfBounces;
-
+	bool rayInterfaceEnabled;
 
 
 	float radius;
 	QTimer updateTimer;
 	QQuickView * rightView;
 	QQuickView * leftView;
-
+	int gameObjectIndex;
 
 private slots:
-	void changeLightType(int);
-	void changeCameraType(int);
+	//void changeLightType(int);
+	//void changeCameraType(int);
 	void changeBounceValue(int);
 	void changeName();
 	void gameObjectSelectionChanged(int, int);
+	void changeMeshColor(qreal x, qreal y, qreal z);
+	void changeRefractionIndex(qreal value);
+	void changeMaterialType(int type);
+	void changeLightPosition(qreal x, qreal y , qreal z);
+	void changeCameraPosition(qreal x , qreal y, qreal z);
+	void changeCameraLookAt(qreal x , qreal y, qreal z);
+	void changeCameraDistance(qreal x);
+	void changeSamples(int value);
+	void changeBounces(int value);
+
 
 private:
 	void addObject();
 	void addSphere();
 	void updateWindow();
+	void setRayInterfaceEnabled(bool enabled);
 	//void renderWindow();
 };
 

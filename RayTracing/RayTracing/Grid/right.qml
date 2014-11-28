@@ -6,44 +6,114 @@ import "QMLComponents" as Components
 import "QMLComponents/componentCreation.js" as MyScript
 
 Rectangle{
+
 	signal changeModelName();
+
+
+	function setCameraLookAt(x, y,z)
+	{
+		cameraPanel.setLookAt(x,y,z);
+	}
+
+	function setCameraPosition(x,y,z)
+	{
+		cameraPanel.setPosition(x,y,z);
+	}
+
+	function setCameraDistance(value)
+	{
+		cameraPanel.distance = value;
+	}
+
+	function setLightPosition(x,y,z)
+	{
+		lightPanel.setPosition(x,y,z);
+		console.log("setLight Position");
+	}
+
+	function setMaterialType( type)
+	{
+		meshPanel.setMaterialType(type);
+	}
+
+	function setLightColor(r,g,b)
+	{
+
+	}
+	
+	function setMeshColor(x,y,z)
+	{
+		meshPanel.setColor(x,y,z);
+	}
+
+	function setRefractionIndex(value)
+	{
+		meshPanel.setRefractionIndex(value);
+	}
+
 	property int type : 0;
 	property int lastType : 0;
-	anchors.fill: parent;
+	anchors.fill : parent;
 	id: root;
-	color : "#3E393A";
-
+	objectName :"rootRect"
+		
+	 gradient: Gradient {
+            GradientStop {
+                position: 0.0; color: "#3E393A"
+            }
+            GradientStop {
+                position: 1.0; color: "#000000"
+            }
+    }
+	
 	signal update(int type);
+	signal updateQML(int index , int type)
+	signal materialChanged(int type)
+	signal colorChanged(real x, real y, real z);
+	signal lightPositionChanged(real x, real y, real z);
+	signal cameraPositionChanged(real x, real y, real z);
+	signal cameraLookAtChanged(real x, real y, real z);
+	signal cameraDistanceChanged(real value);
+	signal indexOfRefractionChanged(real value);
 	
 	Component.onCompleted : 
 	{
-		root.update.connect(updatePanel);
+		root.updateQML.connect(updateGameObject);
+		meshPanel.indexChanged.connect(materialChanged);
+		meshPanel.colorChanged.connect(colorChanged);
+		meshPanel.indexOfRefractionChanged.connect(indexOfRefractionChanged);
+		lightPanel.positionChanged.connect(lightPositionChanged);
+		cameraPanel.positionChanged.connect(cameraPositionChanged);
+		cameraPanel.lookAtChanged.connect(cameraLookAtChanged);
+		cameraPanel.distanceValueChanged.connect(cameraDistanceChanged);
+		//root.update.connect(lightContainer.change);
+		//lVisible = false;
 	}
 
-	property var updatePanel : (function(type)
-	{
-		lightContainer.anim();
-		console.log("animation begin");
 
-		/*
-		if(type == 0)
-		{
-			//root.panel =  MyScript.createObjects("MeshPanel", root);
-			meshContainer.opacity  = 1;
-		}
-		else if(type == 1)
-		{
-			//root.panel =  MyScript.createObjects("LightPanel", root);
-			lightContainer.opacity  = 1;
+	property var updateGameObject : (function(index, type){
+			lightContainer.visible = false;
+			cameraContainer.visible = false;
+			meshContainer.visible = false;
 
-		}
-		else if(type == 2)
-		{
-			//root.panel =  MyScript.createObjects("CameraPanel", root);
-			cameraContainer.opacity  = 1;
+			switch(type)
+			{
+				case  0 : // mesh
+				meshContainer.visible = true;
+				break;
+				case  1 :  // light
+				lightContainer.visible = true;
+				break;
+				case 2 :  // camera
+				cameraContainer.visible = true;
+				break;
+			}
 
 		}
-		*/
+	)
+
+	property var updatePanel : (function(type){
+		//lightContainer.visible = false;
 	})
 
 
@@ -56,132 +126,60 @@ Rectangle{
 
 	}
 
-
 	Rectangle
 	{
 		id : cameraContainer
-		color : "#3E393A";
+		color : "#00000000";
 		anchors.fill: parent;
-		opacity : 0;
+		//opacity : 0;
+		visible : false;
 		Components.CameraPanel
 		{
-
+			id : cameraPanel;
 		}
 	}
 
-	Rectangle
-	{
-		id : lightContainer;
-		property alias animation : animateOpacity;
-		color : "#3E393A";
-		anchors.fill: parent;
-		opacity : 1;
-		property var anim : (function(){animateOpacity.start();console.log(opacity)})
-
-		Components.LightPanel
-		{
-
-		}
-		     MouseArea {
-         anchors.fill: parent
-         onClicked: {
-            console.log("click animate");
-             animateOpacity.start()
-         }
-     }
-
-
-		NumberAnimation {
-         id: animateOpacity
-         target: lightContainer
-         properties: "opacity"
-         from: 1.0
-         to: 0.0
-         loops: Animation.Infinite
-         easing {type: Easing.OutBack; overshoot: 500}
-    }
-
-	}
-
+	
 	Rectangle
 	{
 		id : meshContainer;
-		color : "#3E393A";
-		anchors.fill: parent;
-		opacity: 0 ;
+		objectName : "mesh"
+		color : "#00000000";
+		width : parent.width;
+		height : parent.height;
+		//opacity: 1 ;
+		visible : false;
 		Components.MeshPanel
 		{
-
+			id : meshPanel;
 		}
 
 	}
 
+
+/*
+	Components.Panel
+	{
+		id : lightTitle;
+		title : "Hello Panel"
+		height : 50;
+	}
+	*/
+	Rectangle
+	{
+		//anchors.top : lightTitle.bottom;
+		
+		id : lightContainer;
+		color : "#00000000";
+		objectName : "light";
+		anchors.fill : parent;
+		//opacity : 0;
+		visible : true;
+		Components.LightPanel
+		{
+			id : lightPanel;
+		}
+	}
 
 }
 
-/*
-Rectangle {
-    id: root
-   	anchors.fill: parent;
-	color : "#3E393A";
-
-	signal changeModelName(int index, int type);
-	signal changeMaterial(int materialType, int index, int type);
-	signal changePosition(real x, real y ,real z, int index, int type);
-	signal changeDirection(real x, real y ,real z, int index, int type);
-	signal changeColor(real x, real y ,real z, int index, int type);
-	
-
-
-	function setUp( index,  type)
-	{
-		if(type == 0)
-		{
-		}
-		else if(type == 1)
-		{
-
-		}
-		else if(type == 2)
-		{
-
-		}
-		updateSliders();
-	}
-
-	function updateSliders()
-	{
-		
-	}
-
-	Components.Float3Slider
-	{
-		id : lightPosition;
-		text : "Position";
-		Component.onCompleted : 
-		{
-			
-			setMin(-10.0,-10.0,-10.0);
-			setMax(10.0,10.0,10.0);
-			setStep(1.0,1.0,1.0)
-		}
-		
-	}
-
-	Components.Float3Slider
-	{
-		id : lightColor;
-		text : "Color";
-		//y: 200;
-		anchors.top : lightPosition.bottom;
-		Component.onCompleted : 
-		{
-			
-			setMin(-10.0,-10.0,-10.0);
-			setMax(10.0,10.0,10.0);
-			setStep(0.1,0.1,0.1)
-		}
-		
-	}
-
-}*/

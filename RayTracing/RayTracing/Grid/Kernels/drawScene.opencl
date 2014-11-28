@@ -2,7 +2,9 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 	int height, __global Object * objects, __global Triangle * triangles, 
 	__global int * cells, float3 cellDimensions,__global int * cellIndices, __global int * objectIndices,
 	Camera camera, float3 delta, float3 deltaInv, float3 voxelInvWidth, float3 numberOfVoxels ,
-	float3 voxelWidth , float3 imageCoord , float3 lightVector,int shadowsEnabled , __global Mesh * meshes)
+	float3 voxelWidth , float3 imageCoord , 
+	float3 lightVector,int shadowsEnabled , 
+	__global Mesh * meshes)//, __global Octree * octreeNodes,__local int * depthTrack, __local float *  minDepth, int maxDepth)
 {
 	float3 mask = (float3)(1,1,1);
 	float3 colorSum = (float3)(0,0,0);
@@ -49,10 +51,14 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 		IntersectionInfo intersect  = rayTrace(ray, camera,cellIndices, objectIndices,light,
 				objects, triangles, cellIndex, currentCell, box,voxelWidth,numberOfVoxels, meshes);
 		
+		//IntersectionInfoO intersectO = rayTraceO(ray, camera, light,
+		//	objects,octreeNodes, triangles, box, meshes, depthTrack,minDepth,maxDepth,0);
+
 		if(intersect.distance == -1) break;
 
 		normal = triangles[objects[intersect.objectIndex].triangleIndex].normal;
 		Material material = meshes[objects[intersect.objectIndex].meshIndex].material;
+
 		if(intersect.distance < t)
 		{
 			surfaceColor = material.color.xyz;
@@ -100,7 +106,7 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 				{
 					bool into = dot(normal , orientedNormal) > 0;
 					float nc = 1.0f;
-					float nt = 1.5f;
+					float nt = material.refraction;
 					float nnt = into ? nc / nt : nt/nc;
 					float ddn = dot(direction, orientedNormal);
 					float cos2t = 1- nnt * nnt * (1-ddn * ddn);
@@ -146,7 +152,8 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 	Camera camera, int samples, int numberOfSamples , 
 	float3 delta, float3 deltaInv, float3 voxelInvWidth, float3 numberOfVoxels 
 	,float3 voxelWidth, float seed, int MAX_BOUNCES,
-	 int shadowsEnabled, int reflectionsEnabled, int refractionsEnabled,float4 backgroundColor, __global Mesh * meshes)
+	 int shadowsEnabled, int reflectionsEnabled, int refractionsEnabled,float4 backgroundColor, __global Mesh * meshes, 
+	)// __global Octree * octreeNodes, __local int * depthTrack, __local float * minDepth, int maxDepth)
 {
 	uint4 outColor;
 	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
@@ -155,9 +162,18 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 	float4 radiantColor = (float4)(0,0,0,0);
 	float inverseSamples = 1.0f/ numberOfSamples ;
 	bool rayHit = false;
-	for(int sy = 0; sy < 2; sy++ )
+
+	/*
+	for(int i = 0; i < maxDepth; i++)
 	{
-		for(int sx = 0; sx < 2; sx++ )
+		depthTrack[i] = 0;
+		minDepth[i] = 1000000.0f;
+	}*/
+	int unitSamples = 1;
+	float divideFactor = 1/ (float)(unitSamples * unitSamples);
+	for(int sy = 0; sy < unitSamples; sy++ )
+	{
+		for(int sx = 0; sx < unitSamples; sx++ )
 		{
 			float3 radiantColor = (float3)(0,0,0);
 			
@@ -170,11 +186,12 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 					float3 lightVector = light[0].position + uniformlyRandomVector(seed , imageCoord);
 					radiantColor += (float4)(pathTrace(ray,light,hitRet.maxValue, backgroundColor,MAX_BOUNCES, box,  seed,   width, 
 	 										height, objects, triangles, cells, cellDimensions,cellIndices, objectIndices,camera,  delta,  
-											 deltaInv, voxelInvWidth,  numberOfVoxels , voxelWidth, imageCoord, lightVector, shadowsEnabled, meshes),0.0f) * inverseSamples;
+											 deltaInv, voxelInvWidth,  numberOfVoxels , voxelWidth, imageCoord, lightVector, shadowsEnabled, 
+											 meshes) 0.0f)* inverseSamples;
 					rayHit = true;
 				}
 			}
-			color.xyz += clamp(radiantColor.xyz, (float3)(0,0,0), (float3)(1,1,1)) * 0.25f;
+			color.xyz += clamp(radiantColor.xyz, (float3)(0,0,0), (float3)(1,1,1)) * divideFactor;
 		}
 	}
 

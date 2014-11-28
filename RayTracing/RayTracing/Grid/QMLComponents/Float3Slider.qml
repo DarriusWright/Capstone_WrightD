@@ -6,7 +6,8 @@ import "../QMLComponents" as Components
 
 Rectangle
 {
-	color : "#3E393A";
+	color : "#00000000";
+	
 
 
 	property alias xMin : xSlider.min;
@@ -100,6 +101,8 @@ Rectangle
 		onSliderValueChanged : (function()
 		{
 			valueSlidersChanged(xSlider.value, ySlider.value, zSlider.value);
+			onSlidersValueChanged();
+			
 		})
 	}
 	Components.TextSlider
@@ -114,6 +117,7 @@ Rectangle
 		onSliderValueChanged : (function()
 		{
 			valueSlidersChanged(xSlider.value, ySlider.value, zSlider.value);
+			onSlidersValueChanged();
 		})
 	}
 	Components.TextSlider
@@ -126,6 +130,7 @@ Rectangle
 
 		onSliderValueChanged : (function(){
 			valueSlidersChanged(xSlider.value, ySlider.value, zSlider.value);
+			onSlidersValueChanged();
 		})
 	}
 	}

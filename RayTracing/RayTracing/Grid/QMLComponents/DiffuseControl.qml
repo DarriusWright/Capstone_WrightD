@@ -9,16 +9,23 @@ Rectangle
 	id : diffuseControl;
 	signal diffuseColorChanged(real x,real y,real z)
 
+	
+	function setColor(x,y,z)
+	{
+		diffuseColor.setColor(x,y,z);
+	}
+
+	anchors.topMargin : 50;
+	height : 50
+
 	Component.onCompleted :
 	{
-		diffuseColor.colorChanged.connect(diffuseColorChanged);
+		diffuseColor.colorChanging.connect(diffuseColorChanged);
 	}
 
 	Components.ColorControl
 	{
 		id : diffuseColor
 		text: "Color"
-
-
 	}
 }

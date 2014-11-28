@@ -67,6 +67,7 @@ RenderWindow::~RenderWindow(void)
 
 	delete[]readBuffer;
 	clReleaseMemObject(clImage);
+	//clReleaseMemObject(octreeMem);
 	//clReleaseMemObject(objectPhotonCount);
 	
 	clReleaseMemObject(writeCLImage);
@@ -288,14 +289,19 @@ void RenderWindow::construct()
 
 	layout = new QHBoxLayout();
 	Light light = {{{0.925f,0.835f,0.102f}}, {2.0f,6.0f,18.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::POINT_TYPE };
-	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f));
+	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f), DIFFUSE);
+//	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,12.0f), DIFFUSE);
 	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
-	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f), TRANS);
+	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f), DIFFUSE);
 	
 	//addMesh("Box.obj", glm::vec3(0.0f,2.0f,9.0f));
-	addMesh("basicCube.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::TRANS);
+//	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f),DIFFUSE);
+	
+	addMesh("basicCube.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
+	
+	
+
 //	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,6.0f));
-	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f),DIFFUSE);
 
 	GameObject * lightObject = new GameObject("Light", Type::Light_Type,0);
 	GameObject  * cubeObject = new GameObject("Cube", Type::Mesh_Type,0);
@@ -313,7 +319,7 @@ void RenderWindow::construct()
 	gameObjectContainer.addObject(cameraObject);*/
 
 	box.min -= 0.001f;
-	box.max += 0.001f;
+	box.max +=  0.001f;
 
 
 	lights.push_back(light);
@@ -328,11 +334,20 @@ void RenderWindow::construct()
 	readBuffer = new uchar [windowWidth * windowHeight * 4];
 
 
-	Octree root(box.min + ((box.max - box.min)/ 2.0f),box,0);
-	octManager = OctreeManager(root);
-	octManager.insert(objects,meshes);
+//	Octree root(box.min + ((box.max - box.min)/ 2.0f),box,0);
+//	octManager = OctreeManager(root);
+//	octManager.insert(objects,meshes);
+//	octreeMem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Octree) * octManager.octreeNodes.size(),&octManager.octreeNodes[0], &err );
+	//err |= clEnqueueReadBuffer(queue,depthBuffer,CL_TRUE,0, sizeof(float)*windowWidth * windowHeight * samples, &numbers[0],0,0,0);;
+	
+	DEPTH_REACHED++;
+	
+	//KDTreeNode kdRoot(box,0,0);
+	//kdManager = KDTreeManager(kdRoot);
+	//kdManager.insert(objects,meshes);
+	
+	
 	initializeCL();
-	octreeMem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Octree) * octManager.octreeNodes.size(),&octManager.octreeNodes[0], &err );
 
 
 
@@ -352,8 +367,6 @@ void RenderWindow::updateDrawScene()
 	err |= clEnqueueNDRangeKernel(queue, drawSceneKernel, 3,
 		NULL, &gSize[0], 
 		NULL, 0, NULL, NULL);
-
-	//drawSecondaryRays();
 
 	err |= clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
 
@@ -868,6 +881,7 @@ void RenderWindow::initializeDrawScene()
 	setUpDrawSceneArgs();
 
 
+
 	if(err != CL_SUCCESS) {
 		perror("Couldn't set the drawSceneKernel argument");
 		exit(1);   
@@ -1005,6 +1019,7 @@ void RenderWindow::initializeCL()
 
 	//initializeProgram();
 	initializeMemory();
+
 	//objectPhotonCount = clCreateBuffer(context,CL_MEM_READ_WRITE, sizeof(cl_int) * objects.size(),NULL, &err);
 
 	profileTimer.start();
@@ -1013,6 +1028,10 @@ void RenderWindow::initializeCL()
 	float times[5];
 
 	initializeSceneBBox();
+
+	//clEnqueueReadBuffer(queue,octreeMem,CL_TRUE, 0,sizeof(Octree) * octManager.octreeNodes.size(),&octManager.octreeNodes[0],0,0,0);//(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Octree) * octManager.octreeNodes.size(),&octManager.octreeNodes[0], &err );
+
+
 	times[0] =  (profileTimer.elapsed()/1000.0f);
 	profileTimer.start();
 	initializeCells();
@@ -1070,6 +1089,10 @@ void RenderWindow::setUpDrawSceneArgs()
 	err |= clSetKernelArg(drawSceneKernel,28 , sizeof(cl_int) , &refractionsEnabled);
 	err |= clSetKernelArg(drawSceneKernel, 29, sizeof(cl_float4), &backgroundColor);
 	err |= clSetKernelArg(drawSceneKernel, 30, sizeof(cl_mem), &meshMem);
+	//err |= clSetKernelArg(drawSceneKernel, 31, sizeof(cl_mem), &octreeMem);
+	//err |= clSetKernelArg(drawSceneKernel, 32, sizeof(float) * nextPowerOfTwo(DEPTH_REACHED), NULL);
+	//err |= clSetKernelArg(drawSceneKernel, 33, sizeof(int) * nextPowerOfTwo(DEPTH_REACHED), NULL);
+	//err |= clSetKernelArg(drawSceneKernel, 34, sizeof(int) , &DEPTH_REACHED);
 }
 
 void RenderWindow::setUpReflectionArgs()

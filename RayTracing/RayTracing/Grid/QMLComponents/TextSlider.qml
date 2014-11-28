@@ -12,6 +12,7 @@ Rectangle
 	property alias step : slider.stepSize;
 	property string text : "Value";
 	property alias value : slider.value;
+	property alias fixedValue : slider.fixedValue;
 	property var onSliderValueChanged : (function(){})
 	property alias sliderWidth : slider.width;
 	property alias fontSize : label.font.pixelSize;
@@ -50,10 +51,11 @@ Rectangle
 		updateValueWhileDragging :true;
 		
 		stepSize: 1.0;
+		property int fixedValue : 2;
 		value : 1.0;
 		onValueChanged : 
 		{
-			label.text =  text + " : " +  slider.value.toFixed(2);
+			label.text =  text + " : " +  slider.value.toFixed(fixedValue);
 			valueSliderChanged(slider.value);
 			onSliderValueChanged();
 		}

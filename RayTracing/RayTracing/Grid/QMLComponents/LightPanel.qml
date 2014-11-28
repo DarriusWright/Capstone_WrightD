@@ -9,8 +9,13 @@ Rectangle
 
 	anchors.fill : parent;
 	radius : 5;
-	color : "#3E393A";
+		color : "#00000000";
 
+	signal positionChanged(real x,real y,real z);
+	function setPosition(x,y,z)
+	{
+		position.setValues(x,y,z);
+	}
 
 	Components.Float3Slider
 	{
@@ -20,15 +25,24 @@ Rectangle
 		height : 50;
 		width : 100;
 
-
+		focus : true;
 		Component.onCompleted : 
 		{
-			setMin(-10.0,-10.0,-10.0);
-			setMax(10.0,10.0,10.0);
-			setStep(1,1,1);
+			setMin(-40.0,-40.0,-40.0);
+			setMax(40.0,40.0,40.0);
+			setStep(.1,.1,.1);
 		}
+
+
+			onSlidersValueChanged : (function()
+			{
+				positionChanged(xValue,yValue,zValue);
+			}
+		
+		)
 	}
 
+	/*
 	Components.Float3Slider
 	{
 		id : color;
@@ -44,5 +58,8 @@ Rectangle
 			setMax(1.0,1.0,1.0);
 			setStep(.1,.1,.1);
 		}
-	}
+
+
+
+	}*/
 }

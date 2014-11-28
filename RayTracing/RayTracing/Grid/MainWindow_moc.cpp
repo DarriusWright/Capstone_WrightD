@@ -19,8 +19,8 @@
 
 QT_BEGIN_MOC_NAMESPACE
 struct qt_meta_stringdata_MainWindow_t {
-    QByteArrayData data[7];
-    char stringdata[101];
+    QByteArrayData data[19];
+    char stringdata[251];
 };
 #define QT_MOC_LITERAL(idx, ofs, len) \
     Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \
@@ -30,16 +30,32 @@ struct qt_meta_stringdata_MainWindow_t {
 static const qt_meta_stringdata_MainWindow_t qt_meta_stringdata_MainWindow = {
     {
 QT_MOC_LITERAL(0, 0, 10),
-QT_MOC_LITERAL(1, 11, 15),
-QT_MOC_LITERAL(2, 27, 0),
-QT_MOC_LITERAL(3, 28, 16),
-QT_MOC_LITERAL(4, 45, 17),
-QT_MOC_LITERAL(5, 63, 10),
-QT_MOC_LITERAL(6, 74, 26)
+QT_MOC_LITERAL(1, 11, 17),
+QT_MOC_LITERAL(2, 29, 0),
+QT_MOC_LITERAL(3, 30, 10),
+QT_MOC_LITERAL(4, 41, 26),
+QT_MOC_LITERAL(5, 68, 15),
+QT_MOC_LITERAL(6, 84, 1),
+QT_MOC_LITERAL(7, 86, 1),
+QT_MOC_LITERAL(8, 88, 1),
+QT_MOC_LITERAL(9, 90, 21),
+QT_MOC_LITERAL(10, 112, 5),
+QT_MOC_LITERAL(11, 118, 18),
+QT_MOC_LITERAL(12, 137, 4),
+QT_MOC_LITERAL(13, 142, 19),
+QT_MOC_LITERAL(14, 162, 20),
+QT_MOC_LITERAL(15, 183, 18),
+QT_MOC_LITERAL(16, 202, 20),
+QT_MOC_LITERAL(17, 223, 13),
+QT_MOC_LITERAL(18, 237, 13)
     },
-    "MainWindow\0changeLightType\0\0"
-    "changeCameraType\0changeBounceValue\0"
-    "changeName\0gameObjectSelectionChanged"
+    "MainWindow\0changeBounceValue\0\0changeName\0"
+    "gameObjectSelectionChanged\0changeMeshColor\0"
+    "x\0y\0z\0changeRefractionIndex\0value\0"
+    "changeMaterialType\0type\0changeLightPosition\0"
+    "changeCameraPosition\0changeCameraLookAt\0"
+    "changeCameraDistance\0changeSamples\0"
+    "changeBounces"
 };
 #undef QT_MOC_LITERAL
 
@@ -49,7 +65,7 @@ static const uint qt_meta_data_MainWindow[] = {
        7,       // revision
        0,       // classname
        0,    0, // classinfo
-       5,   14, // methods
+      12,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -57,18 +73,32 @@ static const uint qt_meta_data_MainWindow[] = {
        0,       // signalCount
 
  // slots: name, argc, parameters, tag, flags
-       1,    1,   39,    2, 0x08 /* Private */,
-       3,    1,   42,    2, 0x08 /* Private */,
-       4,    1,   45,    2, 0x08 /* Private */,
-       5,    0,   48,    2, 0x08 /* Private */,
-       6,    2,   49,    2, 0x08 /* Private */,
+       1,    1,   74,    2, 0x08 /* Private */,
+       3,    0,   77,    2, 0x08 /* Private */,
+       4,    2,   78,    2, 0x08 /* Private */,
+       5,    3,   83,    2, 0x08 /* Private */,
+       9,    1,   90,    2, 0x08 /* Private */,
+      11,    1,   93,    2, 0x08 /* Private */,
+      13,    3,   96,    2, 0x08 /* Private */,
+      14,    3,  103,    2, 0x08 /* Private */,
+      15,    3,  110,    2, 0x08 /* Private */,
+      16,    1,  117,    2, 0x08 /* Private */,
+      17,    1,  120,    2, 0x08 /* Private */,
+      18,    1,  123,    2, 0x08 /* Private */,
 
  // slots: parameters
     QMetaType::Void, QMetaType::Int,    2,
-    QMetaType::Void, QMetaType::Int,    2,
-    QMetaType::Void, QMetaType::Int,    2,
     QMetaType::Void,
     QMetaType::Void, QMetaType::Int, QMetaType::Int,    2,    2,
+    QMetaType::Void, QMetaType::QReal, QMetaType::QReal, QMetaType::QReal,    6,    7,    8,
+    QMetaType::Void, QMetaType::QReal,   10,
+    QMetaType::Void, QMetaType::Int,   12,
+    QMetaType::Void, QMetaType::QReal, QMetaType::QReal, QMetaType::QReal,    6,    7,    8,
+    QMetaType::Void, QMetaType::QReal, QMetaType::QReal, QMetaType::QReal,    6,    7,    8,
+    QMetaType::Void, QMetaType::QReal, QMetaType::QReal, QMetaType::QReal,    6,    7,    8,
+    QMetaType::Void, QMetaType::QReal,    6,
+    QMetaType::Void, QMetaType::Int,   10,
+    QMetaType::Void, QMetaType::Int,   10,
 
        0        // eod
 };
@@ -78,11 +108,18 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
     if (_c == QMetaObject::InvokeMetaMethod) {
         MainWindow *_t = static_cast<MainWindow *>(_o);
         switch (_id) {
-        case 0: _t->changeLightType((*reinterpret_cast< int(*)>(_a[1]))); break;
-        case 1: _t->changeCameraType((*reinterpret_cast< int(*)>(_a[1]))); break;
-        case 2: _t->changeBounceValue((*reinterpret_cast< int(*)>(_a[1]))); break;
-        case 3: _t->changeName(); break;
-        case 4: _t->gameObjectSelectionChanged((*reinterpret_cast< int(*)>(_a[1])),(*reinterpret_cast< int(*)>(_a[2]))); break;
+        case 0: _t->changeBounceValue((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 1: _t->changeName(); break;
+        case 2: _t->gameObjectSelectionChanged((*reinterpret_cast< int(*)>(_a[1])),(*reinterpret_cast< int(*)>(_a[2]))); break;
+        case 3: _t->changeMeshColor((*reinterpret_cast< qreal(*)>(_a[1])),(*reinterpret_cast< qreal(*)>(_a[2])),(*reinterpret_cast< qreal(*)>(_a[3]))); break;
+        case 4: _t->changeRefractionIndex((*reinterpret_cast< qreal(*)>(_a[1]))); break;
+        case 5: _t->changeMaterialType((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 6: _t->changeLightPosition((*reinterpret_cast< qreal(*)>(_a[1])),(*reinterpret_cast< qreal(*)>(_a[2])),(*reinterpret_cast< qreal(*)>(_a[3]))); break;
+        case 7: _t->changeCameraPosition((*reinterpret_cast< qreal(*)>(_a[1])),(*reinterpret_cast< qreal(*)>(_a[2])),(*reinterpret_cast< qreal(*)>(_a[3]))); break;
+        case 8: _t->changeCameraLookAt((*reinterpret_cast< qreal(*)>(_a[1])),(*reinterpret_cast< qreal(*)>(_a[2])),(*reinterpret_cast< qreal(*)>(_a[3]))); break;
+        case 9: _t->changeCameraDistance((*reinterpret_cast< qreal(*)>(_a[1]))); break;
+        case 10: _t->changeSamples((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 11: _t->changeBounces((*reinterpret_cast< int(*)>(_a[1]))); break;
         default: ;
         }
     }
@@ -113,13 +150,13 @@ int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 5)
+        if (_id < 12)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 5;
+        _id -= 12;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 5)
+        if (_id < 12)
             *reinterpret_cast<int*>(_a[0]) = -1;
-        _id -= 5;
+        _id -= 12;
     }
     return _id;
 }

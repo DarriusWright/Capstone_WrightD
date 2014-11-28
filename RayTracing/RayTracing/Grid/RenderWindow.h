@@ -35,6 +35,7 @@
 #include <QtQml\qqmllist.h>
 #include "GameObjectContainer.h"
 #include "Octree.h"
+#include "KDTree.h"
 
 using std::vector;
 using std::cout;
@@ -46,6 +47,7 @@ class RenderWindow :public QWidget// public OpenGLWindow
 public:
 	RenderWindow(void);
 	~RenderWindow(void);
+
 	
 	void resizeEvent(QResizeEvent * e)override;
 	void addLight(Light light);
@@ -73,7 +75,7 @@ public:
 //	void render()override;
 
 
-
+	std::vector<Mesh> meshes;
 	int samples;
 	int numberOfReflections;
 	int numberOfRefractions;
@@ -95,6 +97,7 @@ public:
 	
 private:
 	OctreeManager octManager;
+	KDTreeManager kdManager;
 	glm::vec4 backgroundColor;
 	float currentTime;
 	int randomInt;
@@ -131,7 +134,7 @@ private:
 //	GLuint frameBufferId;
 //	void createFrameBuffer();
 	std::vector<Triangle> triangles;
-	std::vector<Mesh> meshes;
+
 	
 	void updateDrawScene();
 	void updateBBox();

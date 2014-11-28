@@ -104,6 +104,7 @@
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="GameObjectContainer.h" />
     <ClInclude Include="helper_math.h" />
+    <ClInclude Include="KDTree.h" />
     <ClInclude Include="Octree.h" />
     <ClInclude Include="UI\UIWidget.h" />
     <ClInclude Include="UI\IntSlider.h" />
@@ -118,15 +119,27 @@
     <CudaCompile Include="RayTracing.cu" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="DynamicQML\Camera.qml" />
+    <None Include="DynamicQML\Light.qml" />
+    <None Include="DynamicQML\Mesh.qml" />
     <None Include="left.qml" />
     <None Include="QMLComponents\CameraPanel.qml" />
+    <None Include="QMLComponents\CheckerBoard.qml" />
     <None Include="QMLComponents\CollapsiblePanel.qml" />
     <None Include="QMLComponents\ColorControl.qml" />
+    <None Include="QMLComponents\ColorCursor.qml" />
+    <None Include="QMLComponents\ColorPicker.qml" />
+    <None Include="QMLComponents\ColorSlider.qml" />
     <None Include="QMLComponents\componentCreation.js" />
     <None Include="QMLComponents\DiffuseControl.qml" />
     <None Include="QMLComponents\Float3Slider.qml" />
     <None Include="QMLComponents\LightPanel.qml" />
     <None Include="QMLComponents\MeshPanel.qml" />
+    <None Include="QMLComponents\NumberBox.qml" />
+    <None Include="QMLComponents\Panel.qml" />
+    <None Include="QMLComponents\PanelBorder.qml" />
+    <None Include="QMLComponents\RayPanel.qml" />
+    <None Include="QMLComponents\SBPicker.qml" />
     <None Include="QMLComponents\ScrollBar.qml" />
     <None Include="QMLComponents\Searchbox.qml" />
     <None Include="QMLComponents\SpecularControl.qml" />

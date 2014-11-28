@@ -30,7 +30,7 @@ typedef struct
 	float distance;
 	int objectIndex;
 	int type;
-	int octTreeNode;
+	int octreeNode;
 	int endDepth;
 }IntersectionInfoO;
 
@@ -155,9 +155,9 @@ typedef struct
 {
 	BBox boundingBox;
 	int objectIndices[5];
+	float origin[3];
 	int index;
 	int numberOfObjects;
 	int childrenStart;
-	float3 origin;
 	int depth;
 }Octree;

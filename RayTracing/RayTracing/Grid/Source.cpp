@@ -32,7 +32,7 @@ using std::endl;
 int main(int argc, char * argv []) 
 {
 	//srand(65776);
-	srand(time(0));
+	srand(2433244);
 	QApplication app(argc,argv);
 	
 	RenderWindow * renderwindow = new RenderWindow();

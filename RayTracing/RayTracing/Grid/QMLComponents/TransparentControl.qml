@@ -7,19 +7,32 @@ import "../QMLComponents/componentCreation.js" as MyScript
 Rectangle
 {
 	id : transparentControl;
-	color : "#3E393A";
+	color : "#00000000";
 
 	signal transparentColorChanged(real x,real y,real z)
 	signal indexOfRefractionChanged(real value)
 
+
+	function setColor(x,y,z)
+	{
+		transparentColor.setColor(x,y,z);
+	}
+
+	function setRefractionIndex(value)
+	{
+		refractionIndex.value = value;
+	}
+
 	Component.onCompleted :
 	{
-		transparentColor.colorChanged.connect(transparentColorChanged);
+		transparentColor.colorChanging.connected(transparentColorChanged);
+		console.log("color changed");
+
 	}
 
 	Components.TextSlider
 	{
-		color : "#3E393A";
+		color : "#00000000";
 
 		id : refractionIndex;
 		min : 0.0;
@@ -37,7 +50,7 @@ Rectangle
 
 	Components.ColorControl
 	{
-		color : "#3E393A";
+		color : "#00000000";
 		width : 100;
 		height :100;
 		anchors.topMargin : 30;
@@ -45,8 +58,4 @@ Rectangle
 		id : transparentColor
 		text: "Color"
 	}
-
-
-
-
 }

@@ -51,9 +51,6 @@
     <ClCompile Include="UI\IntSlider_moc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MainWindow_moc.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="CudaWidget.cu">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -67,6 +64,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GameObjectContainer_moc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MainWindow_moc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -110,6 +110,9 @@
     <ClInclude Include="Octree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="KDTree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="RayTracing.cu" />
@@ -130,6 +133,18 @@
     <None Include="QMLComponents\ColorControl.qml" />
     <None Include="QMLComponents\MeshPanel.qml" />
     <None Include="QMLComponents\CameraPanel.qml" />
+    <None Include="DynamicQML\Camera.qml" />
+    <None Include="DynamicQML\Mesh.qml" />
+    <None Include="DynamicQML\Light.qml" />
+    <None Include="QMLComponents\ColorPicker.qml" />
+    <None Include="QMLComponents\CheckerBoard.qml" />
+    <None Include="QMLComponents\ColorSlider.qml" />
+    <None Include="QMLComponents\SBPicker.qml" />
+    <None Include="QMLComponents\ColorCursor.qml" />
+    <None Include="QMLComponents\NumberBox.qml" />
+    <None Include="QMLComponents\PanelBorder.qml" />
+    <None Include="QMLComponents\Panel.qml" />
+    <None Include="QMLComponents\RayPanel.qml" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="C:\Users\dwright\Desktop\CollapsiblePanel\qml\CollapsiblePannel\images\arrowdown.png">
