@@ -8,6 +8,8 @@ Rectangle
 {
 	id : specularControl;
 	signal specularColorChanged(real x,real y,real z)
+	anchors.fill : parent;
+
 
 	function setColor(x,y,z)
 	{
@@ -22,10 +24,26 @@ Rectangle
 		specularColor.colorChanging.connect(specularColorChanged);
 	}
 
+	Components.Panel
+	{
+		id : colorTitle;
+		title : "Color"
+		y: 5;
+		height : 35;
+		width : parent.width;
+	}
+
 	Components.ColorControl
 	{
+		anchors.top : colorTitle.bottom;
+		color : "#00000000";
+		height : 50;
+		width : parent.width;
+		anchors.topMargin : 50;
+		
+
 		id : specularColor
-		text: "Color"
+		//text: "Color"
 	}
 
 

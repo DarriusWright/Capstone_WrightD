@@ -9,7 +9,7 @@ Rectangle
 
 	anchors.fill : parent;
 	radius : 5;
-		color : "#00000000";
+	color : "#00000000";
 
 	signal positionChanged(real x,real y,real z);
 	function setPosition(x,y,z)
@@ -17,11 +17,23 @@ Rectangle
 		position.setValues(x,y,z);
 	}
 
+	Components.Panel
+	{
+		id : lightTitle;
+		title : "Position"
+		y: 5;
+		height : 35;
+		width : parent.width;
+	}
+
 	Components.Float3Slider
 	{
 		id : position;
-		text : "Position"
+		//text : "Position"
+		anchors.top : lightTitle.bottom;
 		anchors.leftMargin : 20;
+		anchors.topMargin : 10;
+		x: parent.width * .1;
 		height : 50;
 		width : 100;
 
@@ -42,24 +54,5 @@ Rectangle
 		)
 	}
 
-	/*
-	Components.Float3Slider
-	{
-		id : color;
-		text : "Color"
-		height : 50;
-		anchors.leftMargin : 20;
-
-		width : 100;
-		anchors.top : position.bottom;
-		Component.onCompleted : 
-		{
-			setMin(0.0,0.0,0.0);
-			setMax(1.0,1.0,1.0);
-			setStep(.1,.1,.1);
-		}
-
-
-
-	}*/
+	
 }

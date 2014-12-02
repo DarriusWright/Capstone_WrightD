@@ -18,11 +18,13 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render),rightObject(NUL
 
 	qmlRegisterUncreatableType<GameObject>("GameObject", 1,0, "GameObject","Instantiated C++ side !");
 	
+	//engine.load(QUrl(QStringLiteral("left.qml")));
+
+
 	QVariantList listElements;
 	listElements.append(QVariant::fromValue(new GameObject("Cube",Type::Mesh_Type,0)));
 	engine.rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
 
-	engine.load(QUrl(QStringLiteral("left.qml")));
 
 
 	initializeViews();

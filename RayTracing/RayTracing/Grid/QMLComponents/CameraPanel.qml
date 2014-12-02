@@ -13,14 +13,32 @@ Rectangle
 	property var setLookAt :(function(x,y,z){ lookAt.setValues(x,y,z) });
 	property var setPosition :(function(x,y,z){ position.setValues(x,y,z) });
 	property alias distance : distanceSlider.value;
-	property alias text : lookAt.text;
+	
+	color : "#00000000";
+		
 
-
+	
+	Components.Panel
+	{
+		id : positionTitle;
+		title : "Position"
+		y: 5;
+		height : 35;
+		width : parent.width;
+		
+	
+	}
+	
 	Components.Float3Slider
 	{
+		anchors.top : positionTitle.bottom;
+	color : "#00000000";
 		id: position;
+	anchors.leftMargin : 20;
+		anchors.topMargin : 10;
+		x: parent.width * .1;
 		height : 50;
-		text: "Position : ";
+		width : 100;
 		Component.onCompleted : {
 		
 			setMin(-40.0,-40.0,-10.0);
@@ -35,14 +53,67 @@ Rectangle
 
 	}
 
+	Components.Panel
+	{
+		id : distanceTitle;
+		title : "Distance"
+		y: 5;
+		height : 35;
+		width : parent.width;
+		anchors.top : position.bottom;
+		
+		
+	
+	}
+	
+	Components.TextSlider
+	{
+		id : distanceSlider;
+		anchors.top : distanceTitle.bottom;
+		color : "#00000000";
+		min : 0.0;
+		max : 1000.0;
+		anchors.leftMargin : 20;
+		anchors.topMargin : 10;
+		x: parent.width * .1;
+		height : 50;
+		width : 100;
+		text : "Distance"
+
+		onSliderValueChanged : (function()
+		{
+			distanceValueChanged(distanceSlider.value)
+			
+		})
+	}/*
+
+		Components.Panel
+		{
+			id : lookAtTitle;
+			title : "Look At"
+			y: 5;
+			height : 35;
+			width : parent.width;
+			anchors.top : position.bottom;
+		
+		
+	
+		}
 
 	Components.Float3Slider
 	{
+		anchors.top : lookAtTitle.bottom;
 		id: lookAt;
-		anchors.top : position.bottom;
-
+		
+		color : "#00000000";
+		anchors.leftMargin : 20;
+		anchors.topMargin : 10;
+		x: parent.width * .1;
 		height : 50;
-		text: "Look At : ";
+		width : 100;
+
+
+
 		Component.onCompleted : {
 		
 			setMin(-10.0,-10.0,-10.0);
@@ -57,22 +128,5 @@ Rectangle
 
 	}
 
-
-
-	Components.TextSlider
-	{
-		id : distanceSlider;
-		anchors.top : lookAt.bottom;
-
-		min : 0.0;
-		max : 1000.0;
-		height : 50;
-		text : "Distance"
-
-		onSliderValueChanged : (function()
-		{
-			distanceValueChanged(distanceSlider.value)
-			
-		})
-	}
+	*/
 }

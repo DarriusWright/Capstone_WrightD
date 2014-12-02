@@ -45,29 +45,45 @@ Rectangle
 
 
 
+
 	Rectangle 
 	{
 		id : materialUI;
+		color : "#00000000";
 		
-		Text
+	anchors.fill : parent;
+
+
+		Rectangle {
+		id : wrap;
+		color : "#00000000";
+
+		//anchors.fill : parent;
+		height : 200;
+		width : parent.width;
+		Components.Panel
 		{
-			id : materialText
-			
-			anchors.topMargin : 20;
-			x : 20;
-			y: 20;
-			text: "Material : "
-			color : "#81ACD8";
-			font.pixelSize : 16;
+			id : materialTitle;
+			title : "Material"
+			y: 5;
+			height : 35;
+			width : parent.width;
 		}
 		ComboBox
 		{
+
 			id : materialChoice;
-			y: 20;
-			anchors.left : materialText.right;
+			
+
 			currentIndex : 0;
 			property int lastIndex : currentIndex ;
 			width : 200;
+			height : 20;
+			anchors.leftMargin : 20;
+			anchors.topMargin : 10;
+			x: parent.width * .1;
+			
+			anchors.top : materialTitle.bottom;
 			model : ["Diffuse", "Specular", "Transparent"]
 
 			onCurrentIndexChanged :{
@@ -131,35 +147,52 @@ Rectangle
 
 			}
 		}
-
+		}
 		Components.DiffuseControl
 		{
 			id : diffuse;
-			x : 20;
-			y: 50
+			color : "#00000000";
+
+			
+			anchors.topMargin : 100;
+			
 			focus : true;
 			opacity : 1;
-			anchors.top : materialChoice.bottom;
+			anchors.top : wrap.bottom;
+//			anchors.fill : parent;
+
 		}
 
 		Components.SpecularControl
 		{
 			id : specular;
 			x : 20;
-			y : 50;
+			y : 150;
+		color : "#00000000";
+			anchors.topMargin : 100;
+
+			
 			opacity : 0;
 			visible :false
-			anchors.top : materialChoice.bottom;
+			
+			anchors.fill : parent;
 
 		}
 		Components.TransparentControl
 		{
 			id: transparent;
 			x : 20;
+		color : "#00000000";
+			anchors.topMargin : 100;
+
+
 			opacity : 0;
 			visible : false;
-			anchors.top : materialChoice.bottom;
+			
+			anchors.fill : parent;
+
 		}
+
 	}
 
 }

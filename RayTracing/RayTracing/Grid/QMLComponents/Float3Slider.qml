@@ -25,15 +25,26 @@ Rectangle
 	property alias xValue  : xSlider.value;
 	property alias yValue  : ySlider.value;
 	property alias zValue  : zSlider.value;
+
+	property alias xText  : xSlider.text;
+	property alias yText  : ySlider.text;
+	property alias zText  : zSlider.text;
 	
+	function setText(x,y,z)
+	{
+		xText = x;
+		yText = y;
+		zText = z;
+	}
+
 	property var onSlidersValueChanged : (function(){})
-	property alias text : label.text;
+	//property alias text : label.text;
 
 
 	signal valueSlidersChanged(double x, double y, double z);
 
 	Component.onCompleted : {
-		label.text = text
+		//label.text = text
 		setMin(-1.0,-1.0,-1.0);
 		setMax(1.0,1.0,1.0);
 		setStep(0.1,0.1,0.1);
@@ -68,7 +79,7 @@ Rectangle
 		yValue = y;
 		zValue = z;
 	}
-	
+	/*
 	Text
 	{
 		id: label
@@ -81,20 +92,20 @@ Rectangle
 		horizontalAlignment : Text.AlignHCenter;
 		verticalAlignment : Text.AlignVCenter;
 	}
-	
+	*/
 
 
 
 	RowLayout
 	{
 	anchors.leftMargin : 20;
-	anchors.left: label.right
+	//anchors.left: label.right
 	Components.TextSlider
 	{
 
 		id : xSlider;
 		text : "x";
-		width : 140; // safe
+		width : 135; // safe
 		sliderWidth : 50; //safe
 
 		
@@ -109,7 +120,7 @@ Rectangle
 	{
 		id : ySlider;
 		text : "y";
-		width : 140;
+		width : 135;
 	
 		sliderWidth : 50;
 
@@ -124,7 +135,7 @@ Rectangle
 	{
 		id : zSlider;
 		text : "z";
-		width : 140;
+		width : 135;
 
 		sliderWidth : 50;
 

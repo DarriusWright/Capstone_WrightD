@@ -98,6 +98,9 @@ public:
 private:
 	OctreeManager octManager;
 	KDTreeManager kdManager;
+
+	cl_mem kdTreeMem;
+	cl_mem kdTreeIndicesMem;
 	glm::vec4 backgroundColor;
 	float currentTime;
 	int randomInt;

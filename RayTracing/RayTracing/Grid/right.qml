@@ -56,7 +56,7 @@ Rectangle{
 	anchors.fill : parent;
 	id: root;
 	objectName :"rootRect"
-		
+	
 	 gradient: Gradient {
             GradientStop {
                 position: 0.0; color: "#3E393A"
@@ -125,17 +125,41 @@ Rectangle{
 	//	console.log(type);
 
 	}
-
+	
 	Rectangle
 	{
 		id : cameraContainer
 		color : "#00000000";
-		anchors.fill: parent;
-		//opacity : 0;
+
 		visible : false;
+		height : 100;
+		width : parent.width;
+
 		Components.CameraPanel
 		{
 			id : cameraPanel;
+			width : parent.width;
+			height : parent.height;
+		}
+	}
+	
+	
+	
+	Rectangle
+	{
+		
+		
+		height : 100;
+		id : lightContainer;
+		color : "#00000000";
+		objectName : "light";
+		
+		width : parent.width ;
+		visible : true;
+		Components.LightPanel
+		{
+			id : lightPanel;
+
 		}
 	}
 
@@ -143,6 +167,7 @@ Rectangle{
 	Rectangle
 	{
 		id : meshContainer;
+
 		objectName : "mesh"
 		color : "#00000000";
 		width : parent.width;
@@ -152,34 +177,15 @@ Rectangle{
 		Components.MeshPanel
 		{
 			id : meshPanel;
+			width : parent.width;
+			height : parent.height;
 		}
 
 	}
 
 
-/*
-	Components.Panel
-	{
-		id : lightTitle;
-		title : "Hello Panel"
-		height : 50;
-	}
-	*/
-	Rectangle
-	{
-		//anchors.top : lightTitle.bottom;
-		
-		id : lightContainer;
-		color : "#00000000";
-		objectName : "light";
-		anchors.fill : parent;
-		//opacity : 0;
-		visible : true;
-		Components.LightPanel
-		{
-			id : lightPanel;
-		}
-	}
+
+
 
 }
 

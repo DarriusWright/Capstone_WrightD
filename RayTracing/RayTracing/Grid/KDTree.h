@@ -7,6 +7,7 @@ static const int NUMBER_OF_OBJECTS = 5;
 static const int DIMENSIONS = 3;
 static const float COST_OF_TRAVERSAL = 1.0;
 static const float COST_OF_INTERSECTION = 1.5;
+static const int maxDepth = 20;
 
 
 struct KDTreeInfo
@@ -17,11 +18,11 @@ struct KDTreeInfo
 struct KDTreeNode
 {
 	BBox boundingBox;
-	//int objects[NUMBER_OF_OBJECTS] ;
+	int nodes[2];
 	int startingIndex; // if internal node then starting index == -1
 	int numberOfObjects;
-	int nodes[2];
-	int right;
+	float d[1];
+	int parent;
 	int index;
 	int depth;
 
@@ -30,6 +31,129 @@ struct KDTreeNode
 		startingIndex = -1;
 		nodes[0] = nodes[1] = -1;
 	}
+
+	void buildMidPoint(std::vector<KDTreeNode> & nodes,std::vector<KDTreeInfo> & nodeInfo, 
+		const std::vector<Mesh> meshes,const std::vector<Object> & objects , std::vector<int> & leafIndices,
+		int nodeIndex)
+	{
+		int index = nodes.size();
+
+		BBox box;
+
+		if(nodeInfo[index].objects.size() == 0) return;
+		if(nodeInfo[index].objects.size() == 1) 
+		{
+
+			return;
+		}
+
+
+		glm::vec3 midPoint;
+		for (int i = 0; i < nodeInfo[index].objects.size(); i++)
+		{
+			box.expand(objects[nodeInfo[index].objects[i]].box);
+			
+		}
+
+		nodes.push_back(KDTreeNode(box,depth,index));
+	}
+
+	void buildSAH(std::vector<KDTreeNode> & nodes,std::vector<KDTreeInfo> & nodeInfo, 
+		const std::vector<Mesh> meshes,const std::vector<Object> & objects , std::vector<int> & leafIndices,
+		int nodeIndex)
+	{
+		//if stop met done
+
+		if(stopCreation())
+		{
+			startingIndex = leafIndices.size();
+			for (int i = 0; i < nodeInfo[nodeIndex].objects.size(); i++)
+			{
+				leafIndices.push_back(nodeInfo[nodeIndex].objects[i]);
+			}
+
+			return;
+		}
+		
+		// find optimal split position
+		float bestPosition = -1;
+		float bestCost = 10000000.0f;
+		int axis = depth%DIMENSIONS;
+
+		for (int i = 0; i < nodeInfo[nodeIndex].objects.size(); i++)
+		{
+			float min = objects[nodeInfo[nodeIndex].objects[i]].box.min[axis];
+			float max = objects[nodeInfo[nodeIndex].objects[i]].box.max[axis];
+
+			float cost = findCost(min,objects, nodeInfo[nodeIndex].objects,meshes);
+			if(cost < bestCost){bestCost = cost; bestPosition = min;}
+			cost = findCost(max,objects, nodeInfo[nodeIndex].objects, meshes);
+			if(cost < bestCost){bestCost = cost; bestPosition = max;}
+		}
+
+		//glm::vec3 halfDimension;
+
+		//for (int i = 0; i < DIMENSIONS; i++)
+		//{
+		//	if(axis != i)
+		//		halfDimension[i] = boundingBox.max[i];
+		//}
+
+		//halfDimension[axis] = bestPosition;
+
+		glm::vec3 minHalf = boundingBox.max;
+		glm::vec3 maxHalf = boundingBox.min;
+
+		minHalf[axis] = bestPosition;
+		maxHalf[axis] = bestPosition;
+
+
+		BBox left = {boundingBox.min , 0.0f , minHalf};
+		BBox right = {maxHalf , 0.0f , boundingBox.max};
+		KDTreeNode leftNode(left,depth + 1, nodes.size() + 1); 
+		KDTreeNode rightNode(right,depth + 1, nodes.size() + 2);
+
+		KDTreeInfo leftInfo;
+		KDTreeInfo rightInfo;
+
+		leftInfo.objects.reserve(nodeInfo[nodeIndex].objects.size());
+		rightInfo.objects.reserve(nodeInfo[nodeIndex].objects.size());
+
+		for (int i = 0; i < nodeInfo[nodeIndex].objects.size(); i++)
+		{
+
+			Object currentObject = objects[nodeInfo[nodeIndex].objects[i]];
+
+			if(objectBoxCollided(left,currentObject,meshes[currentObject.meshIndex]))
+			{
+				leftInfo.objects.push_back(nodeInfo[nodeIndex].objects[i]);
+			}
+
+			if(objectBoxCollided(right,currentObject,meshes[currentObject.meshIndex]))
+			{
+				rightInfo.objects.push_back(nodeInfo[nodeIndex].objects[i]);
+			}
+		}
+
+		leftNode.numberOfObjects = leftInfo.objects.size();
+		rightNode.numberOfObjects = rightInfo.objects.size();
+
+		nodeInfo.push_back(leftInfo);
+		nodeInfo.push_back(rightInfo);
+		
+		nodes.push_back(leftNode);
+		nodes.push_back(rightNode);
+
+		int leftIndex = nodes.size() - 2;
+		int rightIndex = nodes.size() - 1; 
+		
+		nodes[nodeIndex].nodes[0] =  leftIndex;
+		nodes[nodeIndex].nodes[1] =  rightIndex;
+
+		nodes[leftIndex].build(nodes,nodeInfo,meshes,objects,leafIndices ,leftIndex);///(objects,nodes,nodeInfo);
+		nodes[rightIndex].build(nodes,nodeInfo,meshes,objects, leafIndices,rightIndex);//.build(objects,nodes,nodeInfo);
+	}
+
 
 	void build(std::vector<KDTreeNode> & nodes,std::vector<KDTreeInfo> & nodeInfo, 
 		const std::vector<Mesh> meshes,const std::vector<Object> & objects , std::vector<int> & leafIndices,
@@ -47,58 +171,56 @@ struct KDTreeNode
 
 			return;
 		}
-		//else
-
-		float bestPosition = -1;
-		float bestCost = 10000000.0f;
-		for (int i = 0; i < nodeInfo[nodeIndex].objects.size(); i++)
-		{
-			float min = objects[nodeInfo[nodeIndex].objects[i]].box.min[depth % DIMENSIONS] - FLT_EPSILON;
-			float max = objects[nodeInfo[nodeIndex].objects[i]].box.max[depth % DIMENSIONS] + FLT_EPSILON;
-
-			float cost = findCost(min,objects, nodeInfo[nodeIndex].objects,meshes);
-			if(cost < bestCost){bestCost = cost; bestPosition = min;}
-			cost = findCost(max,objects, nodeInfo[nodeIndex].objects, meshes);
-			if(cost < bestCost){bestCost = cost; bestPosition = max;}
-		}
-
-		glm::vec3 halfDimension;
+		
+	
 		int axis = depth%DIMENSIONS;
 
-		for (int i = 0; i < DIMENSIONS; i++)
-		{
-			if(axis != i)
-				halfDimension[i] = boundingBox.max[i];
-		}
 
-		halfDimension[axis] = bestPosition;
+		glm::vec3 minHalf = boundingBox.max;
+		glm::vec3 maxHalf = boundingBox.min;
 
-		BBox left = {boundingBox.min , 0.0f , halfDimension};
-		BBox right = {halfDimension , 0.0f , boundingBox.max};
+		float halfPoint = ((boundingBox.max[axis] - boundingBox.min[axis]) /2.0f) + boundingBox.min[axis];
+
+
+		minHalf[axis] = halfPoint;
+		maxHalf[axis] = halfPoint;
+
+		//minHalf[axis] = -1.0f;
+		//maxHalf[axis] = -1.0f;
+
+
+		BBox left = {boundingBox.min , 0.0f , minHalf};
+		BBox right = {maxHalf , 0.0f , boundingBox.max};
 		KDTreeNode leftNode(left,depth + 1, nodes.size() + 1); 
 		KDTreeNode rightNode(right,depth + 1, nodes.size() + 2);
 
 		KDTreeInfo leftInfo;
 		KDTreeInfo rightInfo;
-
+		
 		leftInfo.objects.reserve(nodeInfo[nodeIndex].objects.size());
 		rightInfo.objects.reserve(nodeInfo[nodeIndex].objects.size());
 
 		for (int i = 0; i < nodeInfo[nodeIndex].objects.size(); i++)
 		{
-			if(objectBoxCollided(left,objects[nodeInfo[nodeIndex].objects[i]],meshes[objects[nodeInfo[nodeIndex].objects[i]].meshIndex]))
+
+			Object currentObject = objects[nodeInfo[nodeIndex].objects[i]];
+
+			if(objectBoxCollided(left,currentObject,meshes[currentObject.meshIndex]))
 			{
-				leftInfo.objects.push_back(i);
+				leftInfo.objects.push_back(nodeInfo[nodeIndex].objects[i]);
 			}
 
-			if(objectBoxCollided(right,objects[nodeInfo[nodeIndex].objects[i]],meshes[objects[nodeInfo[nodeIndex].objects[i]].meshIndex]))
+			if(objectBoxCollided(right,currentObject,meshes[currentObject.meshIndex]))
 			{
-				rightInfo.objects.push_back(i);
+				rightInfo.objects.push_back(nodeInfo[nodeIndex].objects[i]);
 			}
 		}
 
 		leftNode.numberOfObjects = leftInfo.objects.size();
 		rightNode.numberOfObjects = rightInfo.objects.size();
+
+		leftNode.parent = nodeIndex;
+		rightNode.parent = nodeIndex;
 
 		nodeInfo.push_back(leftInfo);
 		nodeInfo.push_back(rightInfo);
@@ -106,18 +228,21 @@ struct KDTreeNode
 		nodes.push_back(leftNode);
 		nodes.push_back(rightNode);
 
-
+		int leftIndex = nodes.size() - 2;
+		int rightIndex = nodes.size() - 1; 
 		
-		nodes[nodeIndex].nodes[0] =  nodes.size() - 2;
-		nodes[nodeIndex].nodes[1] =  nodes.size() - 1;
+		nodes[nodeIndex].nodes[0] =  leftIndex;
+		nodes[nodeIndex].nodes[1] =  rightIndex;
 
-		nodes[nodes.size() - 1].build(nodes,nodeInfo,meshes,objects, leafIndices,nodes.size() -1);///(objects,nodes,nodeInfo);
-		nodes[nodes.size() - 2].build(nodes,nodeInfo,meshes,objects, leafIndices,nodes.size() -2);//.build(objects,nodes,nodeInfo);
+		nodes[leftIndex].build(nodes,nodeInfo,meshes,objects,leafIndices ,leftIndex);///(objects,nodes,nodeInfo);
+		nodes[rightIndex].build(nodes,nodeInfo,meshes,objects, leafIndices,rightIndex);//.build(objects,nodes,nodeInfo);
 	}
+
+
 
 	bool stopCreation()
 	{
-		return numberOfObjects <= NUMBER_OF_OBJECTS;
+		return numberOfObjects <= NUMBER_OF_OBJECTS || depth >= maxDepth;
 	}
 
 	float leftCost(float splitPosition, const std::vector<Object> & objects , 
@@ -152,8 +277,8 @@ struct KDTreeNode
 			}
 		}
 
-
-		return COST_OF_TRAVERSAL + area * nObjects * COST_OF_INTERSECTION;
+		//formula correct...
+		return  area * nObjects ;
 	}
 
 	float rightCost(float splitPosition, const std::vector<Object> & objects
@@ -187,13 +312,13 @@ struct KDTreeNode
 		}
 
 
-		return COST_OF_TRAVERSAL + area * nObjects * COST_OF_INTERSECTION;
+		return area * nObjects ;
 	}
 
 	float findCost(float splitPosition , const std::vector<Object> & objects,
 		const std::vector<int> & objectIndices, const std::vector<Mesh> meshes)
 	{
-		return leftCost(splitPosition, objects, objectIndices,meshes) + rightCost(splitPosition,objects, objectIndices, meshes);
+		return COST_OF_TRAVERSAL + COST_OF_INTERSECTION * (leftCost(splitPosition, objects, objectIndices,meshes) + rightCost(splitPosition,objects, objectIndices, meshes));
 	}
 
 };
@@ -206,6 +331,7 @@ struct KDTreeManager
 	{
 		root.index = 0;
 		root.depth = 0;
+		root.parent = -1;
 		nodes.push_back(root);
 	}
 

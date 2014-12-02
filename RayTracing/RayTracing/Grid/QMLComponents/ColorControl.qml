@@ -11,7 +11,7 @@ Rectangle
 	signal colorChanged(real x,real y,real z)
 	signal colorChanging(real x,real y,real z)
 	anchors.fill : parent
-	property alias text : color.text;
+	//property alias text : color.text;
 	
 	function setColor(x,y,z)
 	{
@@ -28,11 +28,13 @@ Rectangle
 		id : color;
 		anchors.topMargin : 50;
 		height : 50
+		width : parent.width;
 		Component.onCompleted : 
 		{
 			setMin(0.0,0.0,0.0);
 			setMax(1.0,1.0,1.0);
 			setStep(.1,.1,.1);
+			setText("R", "G", "B");
 		}
 
 		onSlidersValueChanged : (function(){

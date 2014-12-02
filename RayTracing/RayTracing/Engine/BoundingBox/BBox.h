@@ -22,6 +22,12 @@ public :
 		return 2.0f * (d.x * d.y + d.x * d.z + d.y * d.z);
 	}
 
+	void expand(BBox box)
+	{
+		min  = glm::min(box.min, min);
+		max = glm::max(box.max, max);
+	}
+
 	float volumne()
 	{
 		glm::vec3 d = max - min;

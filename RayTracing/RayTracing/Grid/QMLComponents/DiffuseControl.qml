@@ -8,6 +8,8 @@ Rectangle
 {
 	id : diffuseControl;
 	signal diffuseColorChanged(real x,real y,real z)
+	anchors.fill : parent;
+	color : "#00000000";
 
 	
 	function setColor(x,y,z)
@@ -23,9 +25,25 @@ Rectangle
 		diffuseColor.colorChanging.connect(diffuseColorChanged);
 	}
 
+	Components.Panel
+	{
+		id : colorTitle;
+		title : "Color"
+		y: 5;
+		height : 35;
+		width : parent.width;
+	}
+
 	Components.ColorControl
 	{
+		anchors.top : colorTitle.bottom;
+		color : "#00000000";
+		anchors.leftMargin : 20;
+		anchors.topMargin : 50;
+		x: parent.width * .5;
+		height : 50;
+		width : 100;
 		id : diffuseColor
-		text: "Color"
+		//text: "Color"
 	}
 }

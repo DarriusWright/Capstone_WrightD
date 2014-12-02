@@ -4,7 +4,9 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 	Camera camera, float3 delta, float3 deltaInv, float3 voxelInvWidth, float3 numberOfVoxels ,
 	float3 voxelWidth , float3 imageCoord , 
 	float3 lightVector,int shadowsEnabled , 
-	__global Mesh * meshes)//, __global Octree * octreeNodes,__local int * depthTrack, __local float *  minDepth, int maxDepth)
+	__global Mesh * meshes, __global KDNode * kdNodes,
+	__global int * kdIndices, __global Octree * octreeNodes,
+	__local int * depthTrack, __local float *  minDepth, int maxDepth)
 {
 	float3 mask = (float3)(1,1,1);
 	float3 colorSum = (float3)(0,0,0);
@@ -48,22 +50,26 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 		float3 normal;
 
 		//find the inttersection in the scene
-		IntersectionInfo intersect  = rayTrace(ray, camera,cellIndices, objectIndices,light,
+		IntersectionInfo intersectO  = rayTrace(ray, camera,cellIndices, objectIndices,light,
 				objects, triangles, cellIndex, currentCell, box,voxelWidth,numberOfVoxels, meshes);
 		
 		//IntersectionInfoO intersectO = rayTraceO(ray, camera, light,
 		//	objects,octreeNodes, triangles, box, meshes, depthTrack,minDepth,maxDepth,0);
 
-		if(intersect.distance == -1) break;
+		//IntersectionInfo intersectO = rayTraceKD(ray, camera, light,
+		//	objects, triangles, box, meshes,kdNodes, kdIndices);
 
-		normal = triangles[objects[intersect.objectIndex].triangleIndex].normal;
-		Material material = meshes[objects[intersect.objectIndex].meshIndex].material;
 
-		if(intersect.distance < t)
+		if(intersectO.distance == -1) break;
+
+		normal = triangles[objects[intersectO.objectIndex].triangleIndex].normal;
+		Material material = meshes[objects[intersectO.objectIndex].meshIndex].material;
+
+		if(intersectO.distance < t)
 		{
 			surfaceColor = material.color.xyz;
 			
-			float3 hit = intersect.position;
+			float3 hit = intersectO.position;
 			ray.origin = hit;
 			float3 orientedNormal = dot(normal, ray.direction) < 0? normal : -normal;
 			float3 direction = ray.direction;
@@ -135,7 +141,7 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 
 
 			
-			t = intersect.distance;
+			t = intersectO.distance;
 
 		}
 
@@ -152,8 +158,9 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 	Camera camera, int samples, int numberOfSamples , 
 	float3 delta, float3 deltaInv, float3 voxelInvWidth, float3 numberOfVoxels 
 	,float3 voxelWidth, float seed, int MAX_BOUNCES,
-	 int shadowsEnabled, int reflectionsEnabled, int refractionsEnabled,float4 backgroundColor, __global Mesh * meshes, 
-	)// __global Octree * octreeNodes, __local int * depthTrack, __local float * minDepth, int maxDepth)
+	 int shadowsEnabled, int reflectionsEnabled, int refractionsEnabled,
+	 float4 backgroundColor, __global Mesh * meshes , __global KDNode * nodes,
+	  __global int * kdIndices, __global Octree * octreeNodes, __local int * depthTrack, __local float * minDepth, int maxDepth)
 {
 	uint4 outColor;
 	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
@@ -161,14 +168,14 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 	float4 color = backgroundColor;
 	float4 radiantColor = (float4)(0,0,0,0);
 	float inverseSamples = 1.0f/ numberOfSamples ;
-	bool rayHit = false;
 
 	/*
 	for(int i = 0; i < maxDepth; i++)
 	{
 		depthTrack[i] = 0;
 		minDepth[i] = 1000000.0f;
-	}*/
+	}
+	*/
 	int unitSamples = 1;
 	float divideFactor = 1/ (float)(unitSamples * unitSamples);
 	for(int sy = 0; sy < unitSamples; sy++ )
@@ -187,8 +194,7 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 					radiantColor += (float4)(pathTrace(ray,light,hitRet.maxValue, backgroundColor,MAX_BOUNCES, box,  seed,   width, 
 	 										height, objects, triangles, cells, cellDimensions,cellIndices, objectIndices,camera,  delta,  
 											 deltaInv, voxelInvWidth,  numberOfVoxels , voxelWidth, imageCoord, lightVector, shadowsEnabled, 
-											 meshes) 0.0f)* inverseSamples;
-					rayHit = true;
+											 meshes, nodes, kdIndices, octreeNodes, depthTrack, minDepth, maxDepth) ,0.0f)* inverseSamples;
 				}
 			}
 			color.xyz += clamp(radiantColor.xyz, (float3)(0,0,0), (float3)(1,1,1)) * divideFactor;
@@ -196,7 +202,7 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 	}
 
 
-	outColor = toRGBA(rayHit ? color : backgroundColor);
+	outColor = toRGBA( color);
 	write_imageui(dstImage, outImageCoord, outColor);
 
 }

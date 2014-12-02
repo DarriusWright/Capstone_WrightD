@@ -42,6 +42,18 @@ typedef struct
 
 typedef struct
 {
+	BBox boundingBox;
+	int nodes[2];
+	int startingIndex;
+	int numberOfObjects;
+	float d[1];
+	int parent;
+	int index;
+	int depth;
+}KDNode;
+
+typedef struct
+{
 	float3 nextCrossing;
 	float3 deltaT;
 	int3 nextStep;

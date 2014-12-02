@@ -19,18 +19,18 @@ Object inline createObjectFromTriangle(Triangle triangle, glm::vec3 position)
 
 bool inline bboxCollided(BBox b1 , BBox b2)
 {
+	/*bool xCollision = (b1.min[0] <= b2.min[0] + fabs(b2.min[0] - b2.max[0]) &&
+		b2.min[0] <= b1.min[0] + fabs(b1.min[0] - b1.max[0]));
+	bool yCollision = b1.min[1] <= b2.min[1] + fabs(b2.min[1] - b2.max[1]) &&
+		b2.min[1] <= b1.min[1] + fabs(b1.min[1] - b1.max[1]);
+	bool zCollision = b1.min[2] <= b2.min[2] + fabs(b2.min[2] - b2.max[2]) &&
+		b2.min[2] <= b1.min[2] + fabs(b1.min[2] - b1.max[2]);
+*/
+	bool xCollision = !(b1.max[0] < b2.min[0] || b1.min[0] > b2.max[0] );
+	bool yCollision = !(b1.max[1] < b2.min[1] || b1.min[1] > b2.max[1] );
+	bool zCollision = !(b1.max[2] < b2.min[2] || b1.min[2] > b2.max[2] );
 
-
-
-	return (b1.min[0] <= b2.min[0] + fabs(b2.min[0] - b2.max[0]) &&
-		b2.min[0] <= b1.min[0] + fabs(b1.min[0] - b1.max[0]) &&
-
-		b1.min[1] <= b2.min[1] + fabs(b2.min[1] - b2.max[1]) &&
-		b2.min[1] <= b1.min[1] + fabs(b1.min[1] - b1.max[1]) &&
-
-		b1.min[2] <= b2.min[2] + fabs(b2.min[2] - b2.max[2]) &&
-		b2.min[2] <= b1.min[2] + fabs(b1.min[2] - b1.max[2])) 
-		;
+	return xCollision && yCollision && zCollision;
 }
 
 bool inline objectBoxCollided(BBox b1 , Object b2,const  Mesh m)
