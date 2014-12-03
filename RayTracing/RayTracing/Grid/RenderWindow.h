@@ -96,9 +96,10 @@ public:
 
 	
 private:
+	cl_mem stackMem;
 	OctreeManager octManager;
 	KDTreeManager kdManager;
-
+	int numberOfMeshes;
 	cl_mem kdTreeMem;
 	cl_mem kdTreeIndicesMem;
 	glm::vec4 backgroundColor;

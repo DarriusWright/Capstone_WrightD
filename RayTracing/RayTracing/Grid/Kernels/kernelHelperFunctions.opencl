@@ -432,6 +432,112 @@ bool bboxObjectCollided(BBox b1 , Mesh m, Object o1)
 
 }
 
+IntersectionInfo rayTraceKD(Ray ray,Camera camera, 
+	__global Light * light, __global Object * objects,
+	__global Triangle * triangles,
+	 BBox box, __global Mesh * meshes, __global KDNode * kdNodes, __global int * nodeIndices
+	, __local int * stack)
+{
+	int tail = 0;
+	int head = 0;
+	stack[head] = 0;
+	int currentNode = 0;
+	int previousPop = -1;
+	BBox left;
+	BBox right;
+	HitReturn leftHit;
+	HitReturn rightHit;
+	IntersectionInfo intersect;
+	intersect.distance = -1;
+	float lastDistance = 10000000.0f;
+	int leftIndex;
+	int rightIndex;
+	float3 normal;
+	int objectColorIndex = -1;
+	bool hit = false;
+
+	while(head <= tail )
+	{
+
+		leftIndex = kdNodes[currentNode].nodes[0];
+		rightIndex = kdNodes[currentNode].nodes[1];
+		
+		if(leftIndex != -1)
+		{
+			 left = kdNodes[leftIndex].boundingBox;
+			 right = kdNodes[rightIndex].boundingBox;
+			
+			 leftHit = hitBBox(ray,left.min,left.max);
+			 rightHit = hitBBox(ray,right.min,right.max);
+		}
+
+		if(leftIndex != -1 && leftHit.hit && previousPop != leftIndex && previousPop != rightIndex &&  kdNodes[leftIndex].numberOfObjects > 0 )//&& stack[tail] !=leftIndex) && stack[tail] !=rightIndex)
+		{
+			stack[++tail] = leftIndex;
+			if(tail >= 0) currentNode = stack[tail];
+
+			continue;
+		}
+		if(rightIndex != -1 && rightHit.hit && previousPop != rightIndex  &&  kdNodes[rightIndex].numberOfObjects > 0 )//&& stack[tail] !=leftIndex) && stack[tail] !=rightIndex)
+		{
+			stack[++tail] = rightIndex;
+			if(tail >= 0) currentNode = stack[tail];
+			continue;
+		}
+		
+		
+		if(kdNodes[currentNode].startingIndex != -1)
+		{
+			hit = false;
+			int index = currentNode;
+			for(int i = kdNodes[index].startingIndex; i< kdNodes[index].startingIndex + kdNodes[index].numberOfObjects; i++)
+			{
+				int objectIndex = nodeIndices[i];	
+				TriangleInfo triInfo = triangleCollision(ray,triangles[objects[objectIndex].triangleIndex]);
+				triInfo.normal = triangles[objects[objectIndex].triangleIndex].normal;
+				if(triInfo.hasIntersection && lastDistance  > triInfo.distanceFromIntersection)
+				{
+					lastDistance = triInfo.distanceFromIntersection;
+					normal = triInfo.normal;
+					objectColorIndex = objectIndex;
+					hit = true;
+				}
+			}
+			/*
+			for(int i = 0; i < 12 ; i++)
+			{
+				TriangleInfo triInfo = triangleCollision(ray,triangles[i]);
+				triInfo.normal = triangles[i].normal;
+				if(triInfo.hasIntersection && lastDistance  > triInfo.distanceFromIntersection)
+				{
+					lastDistance = triInfo.distanceFromIntersection;
+					normal = triInfo.normal;
+					objectColorIndex = i;
+					hit = true;
+				}
+			}*/
+
+			if(hit)
+			{
+				intersect.direction = ray.direction;
+				intersect.position = ray.direction * lastDistance + ray.origin;
+				intersect.distance = lastDistance;
+				intersect.objectIndex = objectColorIndex;
+				intersect.type = TRIANGLE;
+			}
+		}
+		previousPop = currentNode;
+		tail--;
+		if(tail >= 0) currentNode = stack[tail];
+		
+		//if(tail >= 0) currentNode = stack[tail];
+
+	}
+
+
+	return intersect;
+}
+
 IntersectionInfoO rayTraceO(Ray ray,Camera camera, 
 	__global Light * light, __global Object * objects, __global Octree * octreeNodes,
 	__global Triangle * triangles,
@@ -469,7 +575,7 @@ IntersectionInfoO rayTraceO(Ray ray,Camera camera,
 					{
 						hitRet = hitBox( ray,  octreeNodes[i].boundingBox); 
 						if(hitRet.minValue < minValue)
-						{
+					{
 							node = i;
 							hitNode = true;
 						}   

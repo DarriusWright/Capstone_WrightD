@@ -40,7 +40,8 @@ Rectangle
 		height : 50;
 		width : parent.width;
 		anchors.topMargin : 50;
-		
+		x: parent.width * .1;
+		anchors.leftMargin :  parent.width * .1;
 
 		id : specularColor
 		//text: "Color"

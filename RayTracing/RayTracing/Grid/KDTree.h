@@ -7,7 +7,7 @@ static const int NUMBER_OF_OBJECTS = 5;
 static const int DIMENSIONS = 3;
 static const float COST_OF_TRAVERSAL = 1.0;
 static const float COST_OF_INTERSECTION = 1.5;
-static const int maxDepth = 20;
+static const int MAX_KD_DEPTH = 20;
 
 
 struct KDTreeInfo
@@ -26,7 +26,7 @@ struct KDTreeNode
 	int index;
 	int depth;
 
-	KDTreeNode(BBox boundingBox, int depth, int index) : numberOfObjects(0) , depth(depth) , boundingBox(boundingBox)
+	KDTreeNode(BBox boundingBox, int depth, int index) : numberOfObjects(0) , depth(depth) , boundingBox(boundingBox), index(index)
 	{
 		startingIndex = -1;
 		nodes[0] = nodes[1] = -1;
@@ -110,8 +110,8 @@ struct KDTreeNode
 
 		BBox left = {boundingBox.min , 0.0f , minHalf};
 		BBox right = {maxHalf , 0.0f , boundingBox.max};
-		KDTreeNode leftNode(left,depth + 1, nodes.size() + 1); 
-		KDTreeNode rightNode(right,depth + 1, nodes.size() + 2);
+		KDTreeNode leftNode(left,depth + 1, nodes.size() ); 
+		KDTreeNode rightNode(right,depth + 1, nodes.size() + 1);
 
 		KDTreeInfo leftInfo;
 		KDTreeInfo rightInfo;
@@ -141,16 +141,16 @@ struct KDTreeNode
 		nodeInfo.push_back(leftInfo);
 		nodeInfo.push_back(rightInfo);
 		
+		int leftIndex = nodes.size();
 		nodes.push_back(leftNode);
+		int rightIndex = nodes.size(); 
 		nodes.push_back(rightNode);
 
-		int leftIndex = nodes.size() - 2;
-		int rightIndex = nodes.size() - 1; 
 		
 		nodes[nodeIndex].nodes[0] =  leftIndex;
 		nodes[nodeIndex].nodes[1] =  rightIndex;
 
-		nodes[leftIndex].build(nodes,nodeInfo,meshes,objects,leafIndices ,leftIndex);///(objects,nodes,nodeInfo);
+		nodes[leftIndex].build(nodes,nodeInfo,meshes,objects,leafIndices ,leftIndex);//(objects,nodes,nodeInfo);
 		nodes[rightIndex].build(nodes,nodeInfo,meshes,objects, leafIndices,rightIndex);//.build(objects,nodes,nodeInfo);
 	}
 
@@ -161,9 +161,9 @@ struct KDTreeNode
 	{
 		//if stop met done
 
-		if(stopCreation())
+		if(stopCreation(nodes[nodeIndex]))
 		{
-			startingIndex = leafIndices.size();
+			nodes[nodeIndex].startingIndex = leafIndices.size();
 			for (int i = 0; i < nodeInfo[nodeIndex].objects.size(); i++)
 			{
 				leafIndices.push_back(nodeInfo[nodeIndex].objects[i]);
@@ -185,14 +185,10 @@ struct KDTreeNode
 		minHalf[axis] = halfPoint;
 		maxHalf[axis] = halfPoint;
 
-		//minHalf[axis] = -1.0f;
-		//maxHalf[axis] = -1.0f;
-
-
 		BBox left = {boundingBox.min , 0.0f , minHalf};
 		BBox right = {maxHalf , 0.0f , boundingBox.max};
-		KDTreeNode leftNode(left,depth + 1, nodes.size() + 1); 
-		KDTreeNode rightNode(right,depth + 1, nodes.size() + 2);
+		KDTreeNode leftNode(left,depth + 1, nodes.size() ); 
+		KDTreeNode rightNode(right,depth + 1, nodes.size() + 1);
 
 		KDTreeInfo leftInfo;
 		KDTreeInfo rightInfo;
@@ -224,12 +220,12 @@ struct KDTreeNode
 
 		nodeInfo.push_back(leftInfo);
 		nodeInfo.push_back(rightInfo);
-		
+
+		int leftIndex = nodes.size();
 		nodes.push_back(leftNode);
+		int rightIndex = nodes.size(); 
 		nodes.push_back(rightNode);
 
-		int leftIndex = nodes.size() - 2;
-		int rightIndex = nodes.size() - 1; 
 		
 		nodes[nodeIndex].nodes[0] =  leftIndex;
 		nodes[nodeIndex].nodes[1] =  rightIndex;
@@ -242,7 +238,12 @@ struct KDTreeNode
 
 	bool stopCreation()
 	{
-		return numberOfObjects <= NUMBER_OF_OBJECTS || depth >= maxDepth;
+		return numberOfObjects <= NUMBER_OF_OBJECTS || depth >= MAX_KD_DEPTH;
+	}
+
+	bool stopCreation(KDTreeNode node)
+	{
+		return node.numberOfObjects <= NUMBER_OF_OBJECTS || node.depth >= MAX_KD_DEPTH;
 	}
 
 	float leftCost(float splitPosition, const std::vector<Object> & objects , 

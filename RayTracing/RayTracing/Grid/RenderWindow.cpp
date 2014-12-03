@@ -16,9 +16,9 @@ const cl_float RenderWindow::MAX = -10000000.0f;
 const cl_uint RenderWindow::NUMBER_OF_SPHERES = 1;
 
 
-RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance()), shadowsEnabled(true), 
+RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), glm::vec3(0,0,0)) , random(Random::getInstance()), shadowsEnabled(false), 
 	numberOfReflections(1), reflectionsEnabled(false), refractionsEnabled(false) , numberOfRefractions(1),
-	globalIllumination(false), randomInt(0), initialized(false) , maxDepth(1),backgroundColor(.0,.0,.0,1), currentTime(0.0f)
+	globalIllumination(false), randomInt(0), initialized(false) , maxDepth(1),backgroundColor(.0,.0,.0,1), currentTime(0.0f), numberOfMeshes(0)
 {
 	camera.type = CameraType::Thinlens;
 	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
@@ -68,8 +68,10 @@ RenderWindow::~RenderWindow(void)
 	delete[]readBuffer;
 	clReleaseMemObject(clImage);
 	clReleaseMemObject(octreeMem);
+	clReleaseMemObject(kdTreeMem);
+	clReleaseMemObject(kdTreeIndicesMem);
 	//clReleaseMemObject(objectPhotonCount);
-	
+
 	clReleaseMemObject(writeCLImage);
 	clReleaseSampler(sampler);
 	clReleaseKernel(drawSceneKernel);
@@ -152,6 +154,11 @@ void RenderWindow::addMesh(std::string fileName, glm::vec3 position , MaterialTy
 	const aiScene * scene = importer.ReadFile(fileName, flags);
 	aiMesh * mesh = (scene->mMeshes[0]);
 
+
+	GameObject  * object = new GameObject(fileName.c_str(), Type::Mesh_Type,numberOfMeshes++);
+	gameObjectList.append(object);
+	//GameObject *  planeObject  = new GameObject("Plane", Type::Mesh_Type,1);
+
 	std::vector<cl_uint> modelIndices;
 	std::vector<glm::vec3> modelVertices;
 	modelVertices.reserve(mesh->mNumVertices);
@@ -191,9 +198,9 @@ void RenderWindow::addMesh(std::string fileName, glm::vec3 position , MaterialTy
 	Random random = Random::getInstance();
 
 	Material material = {/*{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}, 
-	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},*/
-	//{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f, (MaterialType)(rand()%3)};
-	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f, type};
+						 {random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},*/
+		//{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f, (MaterialType)(rand()%3)};
+		{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0f,5.0f)}, 1.0f,1.49f, type};
 	Mesh m = {material, {position.x,position.y,position.z, 0.0f},{triangles.size(),triangles.size() + modelIndices.size()/3 }};
 	uint meshIndex = meshes.size();
 	meshes.push_back(m);
@@ -256,9 +263,9 @@ void RenderWindow::addObject(std::string path)
 void RenderWindow::addSphere()
 {
 	Sphere sphere = {{{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}}, 
-//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
-	//{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
-	glm::vec4(random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(30.0f,50.0f),30.0f)};
+		//	{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)},
+		//{random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0),random.getRandomFloat(0.0,1.0)}},
+		glm::vec4(random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(-100.0f,100.0f), random.getRandomFloat(30.0f,50.0f),30.0f)};
 	//spheres.push_back(sphere);
 
 	Object object; 
@@ -289,37 +296,26 @@ void RenderWindow::construct()
 
 	layout = new QHBoxLayout();
 	Light light = {{{0.925f,0.835f,0.102f}}, {2.0f,6.0f,18.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::POINT_TYPE };
-	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f), DIFFUSE);
-//	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,12.0f), DIFFUSE);
-	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
-	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f), DIFFUSE);
-	
-	//addMesh("Box.obj", glm::vec3(0.0f,2.0f,9.0f));
-	addMesh("basicCube.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
-	
-	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f),DIFFUSE);
-	
-//	addMesh("isoSphere.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
-//	addMesh("simpleTorus.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
-	
-	
 
-//	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,6.0f));
 
 	GameObject * lightObject = new GameObject("Light", Type::Light_Type,0);
-	GameObject  * cubeObject = new GameObject("Cube", Type::Mesh_Type,0);
-	GameObject *  planeObject  = new GameObject("Plane", Type::Mesh_Type,1);
-	GameObject *  cameraObject = new GameObject("Camera", Type::Camera_Type, 0 );
-
 	gameObjectList.append(lightObject);
-	gameObjectList.append(cubeObject);
+
+
+	addMesh("FutureCar.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
+	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f),DIFFUSE);
+
+	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f), DIFFUSE);
+	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,12.0f), DIFFUSE);
+	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
+	//	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f), DIFFUSE);
+	//	addMesh("Box.obj", glm::vec3(0.0f,2.0f,9.0f));
+	//	addMesh("isoSphere.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
+	//	addMesh("simpleTorus.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
+	//	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,6.0f));
+
+	GameObject *  cameraObject = new GameObject("Camera", Type::Camera_Type, 0 );
 	gameObjectList.append(cameraObject);
-	gameObjectList.append(planeObject);
-	
-	/*gameObjectContainer.addObject(lightObject);
-	gameObjectContainer.addObject(cubeObject);
-	gameObjectContainer.addObject(planeObject);
-	gameObjectContainer.addObject(cameraObject);*/
 
 	box.min -= 0.001f;
 	box.max +=  0.001f;
@@ -339,20 +335,25 @@ void RenderWindow::construct()
 
 	Octree root(box.min + ((box.max - box.min)/ 2.0f),box,0);
 	octManager = OctreeManager(root);
-	octManager.insert(objects,meshes);
+	//octManager.insert(objects,meshes);
 	octreeMem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Octree) * octManager.octreeNodes.size(),&octManager.octreeNodes[0], &err );
-	
+
 	DEPTH_REACHED++;
-	
+
 	KDTreeNode kdRoot(box,0,0);
 	kdManager = KDTreeManager(kdRoot);
-	kdManager.insert(objects,meshes);
-	
-	kdTreeMem =clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(KDTreeNode) * kdManager.nodes.size(),&kdManager.nodes[0], &err );
-	kdTreeIndicesMem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int) * kdManager.leafObjectIndices.size(),&kdManager.leafObjectIndices[0],&err);
-	
-	initializeCL();
+	//kdManager.insert(objects,meshes);
 
+	kdTreeMem =clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(KDTreeNode) * kdManager.nodes.size(),&kdManager.nodes[0], &err );
+	kdManager.leafObjectIndices.push_back(1);
+	kdTreeIndicesMem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int) * kdManager.leafObjectIndices.size(),&kdManager.leafObjectIndices[0],&err);
+	//vector<int> indices;
+	//indices.resize(kdManager.leafObjectIndices.size());
+
+
+
+	initializeCL();
+	//	clEnqueueReadBuffer(queue,kdTreeIndicesMem,CL_TRUE,0,sizeof(int) * kdManager.leafObjectIndices.size(),&indices[0], 0,0,0);
 
 
 
@@ -364,7 +365,7 @@ void RenderWindow::updateDrawScene()
 	//clEnqueueUnmapMemObject(queue,writeCLImage,readBuffer,0,0,0);
 	clReleaseMemObject(meshMem);
 	meshMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Mesh)* meshes.size(), &meshes[0],&err);
-	
+
 
 	size_t gSize[3] = {windowWidth,windowHeight,sampleSquared};
 	setUpDrawSceneArgs();
@@ -378,10 +379,10 @@ void RenderWindow::updateDrawScene()
 	/*vector<float> numbers;
 	numbers.resize(windowWidth * windowHeight * samples);
 	err |= clEnqueueReadBuffer(queue,depthBuffer,CL_TRUE,0, sizeof(float)*windowWidth * windowHeight * samples, &numbers[0],0,0,0);;
-*/
+	*/
 
 
- 	//cl_uint rowPitch = 0;
+	//cl_uint rowPitch = 0;
 	//readBuffer = (uchar*)clEnqueueMapImage(queue,writeCLImage,CL_TRUE,CL_MAP_READ,origin,region,&rowPitch,0,0,0,0, &err);
 	if(err != CL_SUCCESS)
 	{
@@ -410,7 +411,7 @@ void RenderWindow::updateScene()
 	//updateBBox();
 	//updateCells();
 	randomInt = time;
-		
+
 	randSeed = QDateTime::currentMSecsSinceEpoch();
 
 	updateDrawScene();
@@ -427,8 +428,8 @@ void RenderWindow::updateScene()
 	err |= clSetKernelArg(clearPhotonKernel,0,sizeof(cl_mem),&objectPhotonCount);
 
 	err |= clEnqueueNDRangeKernel(queue, clearPhotonKernel, 1,
-		NULL, &numObj, 
-		NULL, 0, NULL, NULL);
+	NULL, &numObj, 
+	NULL, 0, NULL, NULL);
 
 	err |= clSetKernelArg(emitPhotonKernel,0 , sizeof(int), &photonSeed);
 	err |= clSetKernelArg(emitPhotonKernel,1 , sizeof(int), &photonsPerObject);
@@ -446,14 +447,14 @@ void RenderWindow::updateScene()
 	err |= clSetKernelArg(emitPhotonKernel,13 , sizeof(cl_int), &windowHeight);
 	err |= clSetKernelArg(emitPhotonKernel,14 , sizeof(Camera), &camera);
 	err |= clSetKernelArg(emitPhotonKernel,15 , sizeof(cl_mem), &trianglesMem);
-	
+
 	err |= clEnqueueNDRangeKernel(queue, emitPhotonKernel, 1,
-		NULL, &numberOfPhotons, 
-		NULL, 0, NULL, NULL);
+	NULL, &numberOfPhotons, 
+	NULL, 0, NULL, NULL);
 
 	err |= clEnqueueReadImage(queue,writeCLImage,CL_TRUE,origin,region,0,0,readBuffer,0,NULL,NULL);
 	*/
-	
+
 
 	imageLabel.setPixmap(QPixmap::fromImage(readImage));
 	float drawTimer = profileTimer.elapsed()/1000.0f;
@@ -820,10 +821,10 @@ void RenderWindow::initializeCells()
 		NULL, 0, NULL, NULL);
 	vector<Mesh> og;
 	og.resize(meshes.size());
-	
+
 	err |= clEnqueueReadBuffer(queue,meshMem,CL_TRUE,0, sizeof(Mesh) * meshes.size(), &og[0],0,0,0);
 
-	
+
 	err |= clEnqueueReadBuffer(queue,cellsMem,CL_TRUE,0, sizeof(int) * totalVoxels, &cells[0],0,0,0);
 	err |= clEnqueueReadBuffer(queue,sumMem,CL_TRUE,0, sizeof(cl_int), &numberOfCellObjects,0,0,0);
 
@@ -1095,10 +1096,12 @@ void RenderWindow::setUpDrawSceneArgs()
 	err |= clSetKernelArg(drawSceneKernel, 30, sizeof(cl_mem), &meshMem);
 	err |= clSetKernelArg(drawSceneKernel, 31, sizeof(cl_mem), &kdTreeMem);
 	err |= clSetKernelArg(drawSceneKernel, 32, sizeof(cl_mem), &kdTreeIndicesMem);
-	err |= clSetKernelArg(drawSceneKernel, 33, sizeof(cl_mem), &octreeMem);
-	err |= clSetKernelArg(drawSceneKernel, 34, sizeof(float) * nextPowerOfTwo(DEPTH_REACHED), NULL);
-	err |= clSetKernelArg(drawSceneKernel, 35, sizeof(int) * nextPowerOfTwo(DEPTH_REACHED), NULL);
-	err |= clSetKernelArg(drawSceneKernel, 36, sizeof(int) , &DEPTH_REACHED);
+	err |= clSetKernelArg(drawSceneKernel, 33, sizeof(int) * nextPowerOfTwo(MAX_KD_DEPTH + 1), NULL);
+
+	//err |= clSetKernelArg(drawSceneKernel, 33, sizeof(cl_mem), &octreeMem);
+	//err |= clSetKernelArg(drawSceneKernel, 34, sizeof(float) * nextPowerOfTwo(DEPTH_REACHED), NULL);
+	//err |= clSetKernelArg(drawSceneKernel, 35, sizeof(int) * nextPowerOfTwo(DEPTH_REACHED), NULL);
+	//err |= clSetKernelArg(drawSceneKernel, 36, sizeof(int) , &DEPTH_REACHED);
 }
 
 void RenderWindow::setUpReflectionArgs()
@@ -1246,7 +1249,7 @@ void RenderWindow::calculateVoxelSize()
 
 	cout << numberOfVoxels[0] << " , " << numberOfVoxels[1] << ", " <<numberOfVoxels[2] << endl;
 
-	
+
 
 }
 float RenderWindow::findVoxelsPerUnit()

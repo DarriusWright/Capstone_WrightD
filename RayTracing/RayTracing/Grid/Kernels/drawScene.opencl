@@ -5,8 +5,7 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 	float3 voxelWidth , float3 imageCoord , 
 	float3 lightVector,int shadowsEnabled , 
 	__global Mesh * meshes, __global KDNode * kdNodes,
-	__global int * kdIndices, __global Octree * octreeNodes,
-	__local int * depthTrack, __local float *  minDepth, int maxDepth)
+	__global int * kdIndices,__local int * stack)// __global Octree * octreeNodes,__local int * depthTrack, __local float *  minDepth, int maxDepth)
 {
 	float3 mask = (float3)(1,1,1);
 	float3 colorSum = (float3)(0,0,0);
@@ -57,7 +56,7 @@ float3 pathTrace(Ray ray,__global Light * light,float t , float4 backgroundColor
 		//	objects,octreeNodes, triangles, box, meshes, depthTrack,minDepth,maxDepth,0);
 
 		//IntersectionInfo intersectO = rayTraceKD(ray, camera, light,
-		//	objects, triangles, box, meshes,kdNodes, kdIndices);
+		//	objects, triangles, box, meshes,kdNodes, kdIndices,stack);
 
 
 		if(intersectO.distance == -1) break;
@@ -160,7 +159,7 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 	,float3 voxelWidth, float seed, int MAX_BOUNCES,
 	 int shadowsEnabled, int reflectionsEnabled, int refractionsEnabled,
 	 float4 backgroundColor, __global Mesh * meshes , __global KDNode * nodes,
-	  __global int * kdIndices, __global Octree * octreeNodes, __local int * depthTrack, __local float * minDepth, int maxDepth)
+	  __global int * kdIndices, __local int * stack)// __global Octree * octreeNodes, __local int * depthTrack, __local float * minDepth, int maxDepth )
 {
 	uint4 outColor;
 	int2 outImageCoord = (int2)(get_global_id(0),get_global_id(1));
@@ -169,13 +168,6 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 	float4 radiantColor = (float4)(0,0,0,0);
 	float inverseSamples = 1.0f/ numberOfSamples ;
 
-	/*
-	for(int i = 0; i < maxDepth; i++)
-	{
-		depthTrack[i] = 0;
-		minDepth[i] = 1000000.0f;
-	}
-	*/
 	int unitSamples = 1;
 	float divideFactor = 1/ (float)(unitSamples * unitSamples);
 	for(int sy = 0; sy < unitSamples; sy++ )
@@ -194,7 +186,7 @@ __kernel void drawScene(__read_only image2d_t srcImg, __write_only image2d_t dst
 					radiantColor += (float4)(pathTrace(ray,light,hitRet.maxValue, backgroundColor,MAX_BOUNCES, box,  seed,   width, 
 	 										height, objects, triangles, cells, cellDimensions,cellIndices, objectIndices,camera,  delta,  
 											 deltaInv, voxelInvWidth,  numberOfVoxels , voxelWidth, imageCoord, lightVector, shadowsEnabled, 
-											 meshes, nodes, kdIndices, octreeNodes, depthTrack, minDepth, maxDepth) ,0.0f)* inverseSamples;
+											 meshes, nodes, kdIndices, stack),0.0f)* inverseSamples;//octreeNodes, depthTrack, minDepth, maxDepth) ,0.0f)* inverseSamples;
 				}
 			}
 			color.xyz += clamp(radiantColor.xyz, (float3)(0,0,0), (float3)(1,1,1)) * divideFactor;
