@@ -16,14 +16,18 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render),rightObject(NUL
 	rightComponent(&engine, QUrl::fromLocalFile("right.qml")), gameObjectIndex(0) , rayInterfaceEnabled(true)
 {
 
+	connect(renderer,SIGNAL(updateList()), this, SLOT(updateGameObjectList()));
+
 	qmlRegisterUncreatableType<GameObject>("GameObject", 1,0, "GameObject","Instantiated C++ side !");
-	
+	setMouseTracking(true);
+	setFocusPolicy(Qt::StrongFocus);
+	setEnabled(true);
 	//engine.load(QUrl(QStringLiteral("left.qml")));
 
 
-	QVariantList listElements;
-	listElements.append(QVariant::fromValue(new GameObject("Cube",Type::Mesh_Type,0)));
-	engine.rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
+//	QVariantList listElements;
+//	listElements.append(QVariant::fromValue(new GameObject("Cube",Type::Mesh_Type,0)));
+//	engine.rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
 
 
 
@@ -51,6 +55,20 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render),rightObject(NUL
 	
 }
 
+
+void MainWindow::updateGameObjectList()
+{
+	QVariantList listElements;
+
+	for(GameObject * g  : renderer->gameObjectList)
+	{
+		listElements.append(QVariant::fromValue(g));
+	}
+
+	//listElements.append(QVariant::fromValue(new GameObject("Cubelkfdsjaslkfdjsakf",Type::Mesh_Type,0)));
+	//engine.rootContext()->setContextProperty("gContainer",QVariant::fromValue(renderer->gameObjectContainer));
+	leftView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
+}
 
 MainWindow::~MainWindow(void)
 {
@@ -107,6 +125,19 @@ void MainWindow::changeMeshColor(qreal x, qreal y , qreal z)
 
 
 	qDebug() << "Color Changing";
+}
+
+
+void MainWindow::keyPressEvent(QKeyEvent * e)
+{
+	//cout << "Pressed Event" << endl;
+	renderer->keyPressEvent(e);
+}
+
+void MainWindow::keyReleaseEvent(QKeyEvent * e)
+{
+	//cout << "Pressed Event" << endl;
+	renderer->keyReleaseEvent(e);
 }
 
 void MainWindow::changeRefractionIndex(qreal value)

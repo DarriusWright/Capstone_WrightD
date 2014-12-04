@@ -95,6 +95,8 @@ private:
 	QQuickView * rightView;
 	QQuickView * leftView;
 	int gameObjectIndex;
+	void keyPressEvent(QKeyEvent * e)override;
+	void keyReleaseEvent(QKeyEvent * e)override;
 
 private slots:
 	//void changeLightType(int);
@@ -111,7 +113,7 @@ private slots:
 	void changeCameraDistance(qreal x);
 	void changeSamples(int value);
 	void changeBounces(int value);
-
+	void updateGameObjectList();
 
 private:
 	void addObject();

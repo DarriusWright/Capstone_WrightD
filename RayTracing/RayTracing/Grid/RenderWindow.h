@@ -36,6 +36,7 @@
 #include "GameObjectContainer.h"
 #include "Octree.h"
 #include "KDTree.h"
+#include <QtGui\qevent.h>
 
 using std::vector;
 using std::cout;
@@ -68,7 +69,8 @@ public:
 	vector<Light> lights;
 	void changeLightType(QString index);
 	QList<GameObject * > gameObjectList;
-
+	GameObject * lightObject;
+	GameObject * cameraObject;
 	GameObjectContainer gameObjectContainer;
 
 //	void initialize()override;
@@ -94,8 +96,20 @@ public:
 	void changeLightType(int index);
 	void changeCameraType(int index);
 
-	
+	signals:
+	void updateList();
+	void keyReleaseEvent(QKeyEvent * e) override;
+	void keyPressEvent(QKeyEvent * e) override;
 private:
+	void scene1();
+	void scene2();
+	void scene3();
+	void scene4();
+	void scene5();
+	void initializeGameObjectList();
+	void clearScene();
+	void sceneInitialize();
+	void sceneRelease();
 	cl_mem stackMem;
 	OctreeManager octManager;
 	KDTreeManager kdManager;

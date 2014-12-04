@@ -20,7 +20,7 @@ public:
 private :
 	QString name;
 	QList<GameObject*> m_list;
-
+	void clear();
 
 };
 

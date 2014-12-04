@@ -29,6 +29,8 @@ RenderWindow::RenderWindow(void) : multi(2.0f),camera(glm::vec3(0.0f,0,20.0f), g
 	construct();
 
 	initialized = true;
+	setMouseTracking(true);
+
 }
 
 void RenderWindow::setMaxBounce(int numBounces)
@@ -60,7 +62,6 @@ void RenderWindow::changeLightType( QString index)
 	//lights[0].type = (LightType)index;
 }
 
-
 RenderWindow::~RenderWindow(void)
 {
 
@@ -87,8 +88,6 @@ RenderWindow::~RenderWindow(void)
 	releaseUpdate();
 
 }
-
-
 bool RenderWindow::isShadowsEnabled()const
 {
 	return shadowsEnabled;
@@ -141,11 +140,11 @@ void RenderWindow::setSamples(int samplesSquared)
 	this->sampleSquared =samplesSquared;
 	this->samples = pow(sampleSquared,2.0f);
 
-	if(initialized)
-	{
-		clReleaseMemObject(depthBuffer);
-		depthBuffer = clCreateBuffer(context,CL_MEM_READ_WRITE,sizeof(cl_float)*windowWidth * windowHeight * samples, NULL,&err);;
-	}
+	//if(initialized)
+	//{
+	//	clReleaseMemObject(depthBuffer);
+	//	depthBuffer = clCreateBuffer(context,CL_MEM_READ_WRITE,sizeof(cl_float)*windowWidth * windowHeight * samples, NULL,&err);;
+	//}
 
 }
 void RenderWindow::addMesh(std::string fileName, glm::vec3 position , MaterialType type)
@@ -290,6 +289,11 @@ void RenderWindow::addSphere()
 
 	objects.push_back(object);
 }
+
+void RenderWindow::keyPressEvent(QKeyEvent * e)
+{
+}
+
 void RenderWindow::construct()
 {
 	setMinimumSize(640,480);
@@ -297,24 +301,27 @@ void RenderWindow::construct()
 	layout = new QHBoxLayout();
 	Light light = {{{0.925f,0.835f,0.102f}}, {2.0f,6.0f,18.0f}, {1.0f,1.0f,-1.0f,2.0f}, LightType::POINT_TYPE };
 
-
-	GameObject * lightObject = new GameObject("Light", Type::Light_Type,0);
+	 lightObject = new GameObject("Light", Type::Light_Type,0);
 	gameObjectList.append(lightObject);
 
 
-	addMesh("FutureCar.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
+	//addMesh("FutureCar.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::SPECULAR);
 	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f),DIFFUSE);
 
-	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,10.0f), DIFFUSE);
-	//addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,12.0f), DIFFUSE);
-	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f));
-	//	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,12.0f), DIFFUSE);
+//	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f), DIFFUSE);
+//	addMesh("Helicopter.obj", glm::vec3(0.0f,0.0f,6.0f), DIFFUSE);
+	//addMesh("cylinder.obj", glm::vec3(0.0f,0.0f,10.0f), SPECULAR);
+	//addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f), SPECULAR);
+	//addMesh("suzy.obj", glm::vec3(0.0f,0.0f,8.0f), SPECULAR);
 	//	addMesh("Box.obj", glm::vec3(0.0f,2.0f,9.0f));
-	//	addMesh("isoSphere.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
+	//addMesh("isoSphere.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::SPECULAR);
 	//	addMesh("simpleTorus.obj", glm::vec3(0.0f,2.0f,9.0f), MaterialType::DIFFUSE);
 	//	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,6.0f));
 
-	GameObject *  cameraObject = new GameObject("Camera", Type::Camera_Type, 0 );
+	addMesh("basicCube.obj", glm::vec3(0.0f,0.0f,8.5f), SPECULAR);
+	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f), DIFFUSE);
+
+	cameraObject = new GameObject("Camera", Type::Camera_Type, 0 );
 	gameObjectList.append(cameraObject);
 
 	box.min -= 0.001f;
@@ -394,6 +401,175 @@ void RenderWindow::updateDrawScene()
 	//clEnqueueUnmapMemObject(queue,
 	//qDebug() << err;
 }
+
+void RenderWindow::clearScene()
+{
+	BBox b = {glm::vec3(MIN,MIN,MIN),0.0f,glm::vec3(MAX,MAX,MAX),0.0f};
+	box = b;
+	numberOfMeshes = 0;
+
+	initializeGameObjectList();
+}
+
+
+void RenderWindow::sceneInitialize()
+{
+	box.min -= 0.001f;
+	box.max +=  0.001f;
+
+	objectMem = clCreateBuffer(context,CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR,sizeof(Object)* objects.size(), &objects[0],&err);
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating Object" << endl;
+		exit(-1);
+	}
+	if(triangles.size() > 0)
+	{
+
+		trianglesMem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Triangle) * triangles.size(), &triangles[0], &err);
+
+		if(err != CL_SUCCESS)
+		{
+			cout << "Error creating triangle Object" << endl;
+			exit(-1);
+		}
+	}
+
+	
+	boundingBoxMem = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,sizeof(BBox), &box,&err);
+
+	if(err != CL_SUCCESS)
+	{
+		cout << "Error creating bounding box memory object" << endl;
+		//cleanup
+		exit(-1);
+	}
+
+	
+	profileTimer.start();
+
+	float times[5];
+
+	initializeSceneBBox();
+
+	//clEnqueueReadBuffer(queue,octreeMem,CL_TRUE, 0,sizeof(Octree) * octManager.octreeNodes.size(),&octManager.octreeNodes[0],0,0,0);//(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Octree) * octManager.octreeNodes.size(),&octManager.octreeNodes[0], &err );
+
+
+	times[0] =  (profileTimer.elapsed()/1000.0f);
+	profileTimer.start();
+	initializeCells();
+	times[1] =  (profileTimer.elapsed()/1000.0f);
+
+	profileTimer.start();
+	initializeCellObjects();
+	times[2] =  (profileTimer.elapsed()/1000.0f);
+
+	profileTimer.start();
+	initializeDrawScene();
+	times[3] =  (profileTimer.elapsed()/1000.0f);
+
+	times[4] = timer.elapsed() / 1000.0f;
+
+
+	cout << "Init SceneBox : " << times[0] << endl;
+	cout << "Init Cells : " << times[1] << endl;
+	cout << "Init Cell Objects : " << times[2] << endl;
+	cout << "Init DrawScene : " << times[3] << endl;
+	cout << "Init total : " << times[4] << endl;
+
+	emit updateList();
+
+}
+
+void RenderWindow::initializeGameObjectList()
+{
+	gameObjectList.clear();
+	gameObjectList.append(lightObject);
+	gameObjectList.append(cameraObject);
+}
+void RenderWindow::sceneRelease()
+{
+	releaseUpdate();
+	triangles.clear();
+	objects.clear();
+	meshes.clear();
+}
+void RenderWindow::scene1()
+{
+	sceneRelease();
+	clearScene();
+	addMesh("basicCube.obj", glm::vec3(0.0f,0.0f,8.5f), TRANS);
+	addMesh("shadowPlane.obj", glm::vec3(0.0f,0.0f,6.0f), DIFFUSE);
+	sceneInitialize();
+
+}
+void RenderWindow::scene2()
+{
+	sceneRelease();
+	clearScene();
+	addMesh("shadowPlane.obj", glm::vec3(0,0,6), SPECULAR);
+	addMesh("cylinder.obj", glm::vec3(0.0f,0.0f,10.0f), SPECULAR);
+	sceneInitialize();
+
+}
+void RenderWindow::scene3()
+{
+	sceneRelease();
+	clearScene();
+	addMesh("shadowPlane.obj", glm::vec3(0,0,6), SPECULAR);
+	addMesh("smallSuzy.obj", glm::vec3(0.0f,0.0f,10.0f), DIFFUSE);
+
+	sceneInitialize();
+
+}
+void RenderWindow::scene4()
+{
+	sceneRelease();
+	clearScene();
+	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,10.0f), SPECULAR);
+
+	sceneInitialize();
+
+
+}
+
+void RenderWindow::scene5()
+{
+	sceneRelease();
+	clearScene();
+	addMesh("FutureCar.obj", glm::vec3(0,0,10), SPECULAR);
+
+	sceneInitialize();
+
+}
+
+
+void RenderWindow::keyReleaseEvent(QKeyEvent * e)
+{
+	if (e->key() == Qt::Key_1)
+	{
+		scene1();
+	}
+	else if (e->key() == Qt::Key_2)
+	{
+		scene2();
+	}
+	else if (e->key() == Qt::Key_3)
+	{
+		scene3();
+	}
+	else if (e->key() == Qt::Key_4)
+	{
+		scene4();
+	}
+	else if (e->key() == Qt::Key_5)
+	{
+		scene5();
+	}
+
+
+}
+
 void RenderWindow::updateScene()
 {
 	//releaseUpdate();
@@ -746,6 +922,7 @@ void RenderWindow::handleKeyInput()
 		camera.moveOut();
 	}
 
+
 }
 void RenderWindow::initializeProgram()
 {
@@ -979,11 +1156,11 @@ void RenderWindow::initializeMemory()
 	//depthBuffer = clCreateImage2D(context,CL_MEM_READ_WRITE, &depthBufferFormat, windowWidth,windowHeight, 0 ,NULL, &err);
 	depthBuffer = clCreateBuffer(context,CL_MEM_READ_WRITE,sizeof(cl_float)*windowWidth * windowHeight * samples, NULL,&err);;
 
-	if(err != CL_SUCCESS)
-	{
-		cout << "Error creating depthBuffer CL Image object : " << err << endl;
-		exit(-1);
-	}
+	//if(err != CL_SUCCESS)
+	//{
+	//	cout << "Error creating depthBuffer CL Image object : " << err << endl;
+	//	exit(-1);
+	//}
 
 
 	sampler  = clCreateSampler(context, CL_FALSE, CL_ADDRESS_CLAMP_TO_EDGE, CL_FILTER_NEAREST, & err);
