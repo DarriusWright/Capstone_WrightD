@@ -517,7 +517,7 @@ void RenderWindow::scene3()
 	sceneRelease();
 	clearScene();
 	addMesh("shadowPlane.obj", glm::vec3(0,0,6), SPECULAR);
-	addMesh("smallSuzy.obj", glm::vec3(0.0f,0.0f,10.0f), DIFFUSE);
+	addMesh("smallSuzy.obj", glm::vec3(0.0f,1.0f,8.0f), DIFFUSE);
 
 	sceneInitialize();
 
@@ -526,7 +526,7 @@ void RenderWindow::scene4()
 {
 	sceneRelease();
 	clearScene();
-	addMesh("suzy.obj", glm::vec3(0.0f,0.0f,10.0f), SPECULAR);
+	addMesh("suzy2.obj", glm::vec3(0.0f,0.0f,10.0f), SPECULAR);
 
 	sceneInitialize();
 
