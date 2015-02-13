@@ -12,7 +12,7 @@
 
 
 MainWindow::MainWindow(RenderWindow * render) : renderer(render),rightObject(NULL),
-	leftComponent(&engine, QUrl::fromLocalFile("left.qml")),
+	//leftComponent(&engine, QUrl::fromLocalFile("left.qml")),
 	rightComponent(&engine, QUrl::fromLocalFile("right.qml")), gameObjectIndex(0) , rayInterfaceEnabled(true)
 {
 
@@ -37,7 +37,7 @@ MainWindow::MainWindow(RenderWindow * render) : renderer(render),rightObject(NUL
 	mainWidget = new QWidget();
 	QHBoxLayout * mainLayout = new QHBoxLayout();
 	
-	mainLayout->addWidget(leftContainer);
+	//mainLayout->addWidget(leftContainer);
 
 	mainLayout->setContentsMargins(0,0,0,0);
 	mainLayout->setSpacing(0);
@@ -67,7 +67,8 @@ void MainWindow::updateGameObjectList()
 
 	//listElements.append(QVariant::fromValue(new GameObject("Cubelkfdsjaslkfdjsakf",Type::Mesh_Type,0)));
 	//engine.rootContext()->setContextProperty("gContainer",QVariant::fromValue(renderer->gameObjectContainer));
-	leftView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
+	//leftView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
+	//rightView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
 }
 
 MainWindow::~MainWindow(void)
@@ -87,16 +88,16 @@ void MainWindow::initializeViews()
 	QMetaObject::invokeMethod(rightQml, "setLightPosition",Q_ARG(QVariant,renderer->lights[gameObjectIndex].position.s[0]),Q_ARG(QVariant,renderer->lights[gameObjectIndex].position.s[1]),Q_ARG(QVariant,renderer->lights[gameObjectIndex].position.s[2]));
 
 
-	leftView = new QQuickView();
-	leftContainer = QWidget::createWindowContainer(leftView, this);
-	leftView->setSource(QUrl("left.qml"));
+	//leftView = new QQuickView();
+	//leftContainer = QWidget::createWindowContainer(leftView, this);
+	//leftView->setSource(QUrl("left.qml"));
 
-	leftContainer->setMinimumSize(300, 200);
+/*	leftContainer->setMinimumSize(300, 200);
 	leftContainer->setMaximumSize(300, 700);
-	leftContainer->setFocusPolicy(Qt::TabFocus);
+	leftContainer->setFocusPolicy(Qt::TabFocus)*/;
 
 	rightQml = rightView->rootObject();
-	leftQml = leftView->rootObject();
+	//leftQml = leftView->rootObject();
 
 	qmlRegisterUncreatableType<GameObject>("GameObject", 1,0, "GameObject","Instanciated C++ side !");
 	//for()
@@ -110,7 +111,8 @@ void MainWindow::initializeViews()
 
 	//listElements.append(QVariant::fromValue(new GameObject("Cubelkfdsjaslkfdjsakf",Type::Mesh_Type,0)));
 	//engine.rootContext()->setContextProperty("gContainer",QVariant::fromValue(renderer->gameObjectContainer));
-	leftView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
+	//leftView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
+	rightView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(listElements));
 
 
 
@@ -149,7 +151,7 @@ void MainWindow::gameObjectSelectionChanged(int index, int type)
 {
 	Type gameObjectType = (Type) type;
 	gameObjectIndex = index;
-	rightView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(renderer->gameObjectList[index]));
+	//leftView->rootContext()->setContextProperty("gameObject",QVariant::fromValue(renderer->gameObjectList[index]));
 	//QMetaObject::invokeMethod(object, "myQmlFunction",
 	//   Q_RETURN_ARG(QVariant, returnedValue),
 	//   Q_ARG(QVariant, msg));
@@ -198,10 +200,10 @@ void MainWindow::connectSignals()
 
 void MainWindow::connectQMLSignals()
 {
-	connect(leftQml, SIGNAL(modelChanged(int, int)), this , SLOT(gameObjectSelectionChanged(int,int)));
-	connect(leftQml, SIGNAL(modelChanged(int,int)), rightQml,SIGNAL(updateQML(int,int)));
-	connect(leftQml, SIGNAL(numberOfBouncesChanged(int)), this, SLOT(changeBounces(int)));
-	connect(leftQml, SIGNAL(numberOfSamplesChanged(int)), this, SLOT(changeSamples(int)));
+	connect(rightQml, SIGNAL(modelChanged(int, int)), this , SLOT(gameObjectSelectionChanged(int,int)));
+	//connect(rightQml, SIGNAL(modelChanged(int,int)), rightQml,SIGNAL(updateQML(int,int)));
+	connect(rightQml, SIGNAL(numberOfBouncesChanged(int)), this, SLOT(changeBounces(int)));
+	connect(rightQml, SIGNAL(numberOfSamplesChanged(int)), this, SLOT(changeSamples(int)));
 	connect(rightQml, SIGNAL(indexOfRefractionChanged(qreal)), this, SLOT(changeRefractionIndex(qreal)));
 	connect(rightQml, SIGNAL(colorChanged(qreal,qreal,qreal)), this, SLOT(changeMeshColor(qreal,qreal,qreal)));
 	connect(rightQml, SIGNAL(materialChanged(int)), this , SLOT(changeMaterialType(int)));
@@ -246,55 +248,6 @@ void MainWindow::changeName()
 {
 	qDebug() << "Changed Name" ;
 }
-//
-//void MainWindow::changeLightType(int index)
-//{
-//	LightType type = (LightType)index;
-//	lightSelection->setCurrentIndex(index);
-//
-//	position->setVisible(false);
-//	direction->setVisible(false);
-//	pointLightRadius->setVisible(false);
-//
-//
-//	switch (type)
-//	{
-//	case LightType::DIRECTIONAL_TYPE:
-//		direction->setVisible(true);
-//
-//		break;
-//	case LightType::POINT_TYPE:
-//		position->setVisible(true);
-//		pointLightRadius->setVisible(true);
-//		break;
-//	}
-//
-//
-//	renderer->changeLightType(index);
-//
-//}
-//void MainWindow::changeCameraType(int index)
-//{
-//	CameraType type = (CameraType)index;
-//
-//	//cameraDistance->setVisible(false);
-//	//cameraLookAt->setVisible(false);
-//
-//	switch (type)
-//	{
-//	case CameraType::Pinhole:
-//		break;
-//	case CameraType::FishEye:
-//		break;
-//	case CameraType::Spherical:
-//		break;
-//	case CameraType::Stero:
-//		break;
-//	case CameraType::Thinlens:
-//		break;
-//	}
-//	renderer->changeCameraType(index);
-//}
 
 QAction * MainWindow::addAction(const char * title, int shortCut)
 {
@@ -387,21 +340,6 @@ void MainWindow::updateWindow()
 {
 
 	renderer->updateScene();
-	//pointLightRadius->update();
-	//direction->update();
-	//position->update();
-	//ambient->update();
-	//diffuse->update();
-	//specular->update();
-	//specularPower->update();
-	//cameraLookAt->update();
-	//cameraDistance->update();
-	///cameraRadius->update();
-	//cameraFocalDistance->update();
-
-	//sampling->update();
-	//numberOfReflections->update();
-	//numberOfRefractions->update();
 	setWindowTitle( "Time : " + QString::number(renderer->getInterval()) + "\tFrames : "+ QString::number(renderer->getFPS()));
 
 }

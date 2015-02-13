@@ -8,10 +8,6 @@ import GameObject 1.0
 Rectangle
 {
 	anchors.fill: parent;
-	//color : "#00000000";
-	signal modelChanged(int index, int t);
-
-	
 	 gradient: Gradient {
             GradientStop {
                 position: 0.0; color: "#3E393A"
@@ -20,6 +16,7 @@ Rectangle
                 position: 1.0; color: "#000000"
             }
     }
+	signal modelChanged(int index, int t);
 	signal numberOfBouncesChanged(int change);
 	signal numberOfSamplesChanged(int change);
 
@@ -95,7 +92,6 @@ Rectangle
 						parent.textColor = "#3E393A"
 						
 						gameObjectsListView.currentIndex = index;
-						//modelChanged(model.modelData.index,model.modelData.type);
 						modelChanged(model.modelData.index,model.modelData.type);
 						
 					}

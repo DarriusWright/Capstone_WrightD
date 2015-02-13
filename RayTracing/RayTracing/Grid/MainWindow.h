@@ -46,13 +46,14 @@ private:
 
 	QQmlApplicationEngine engine;
 	//QQmlEngine engine;
-	QQmlComponent leftComponent;
+	//QQmlComponent leftComponent;
 	QQmlComponent rightComponent;
 	QObject * object;
 	QQuickItem * rightQml;
-	QQuickItem * leftQml;
+	
+	//QQuickItem * leftQml;
 	QWidget * rightContainer;
-	QWidget * leftContainer;
+	//QWidget * leftContainer;
 	QObject * rightObject;
 
 	QWidget * mainWidget;
@@ -93,7 +94,7 @@ private:
 	float radius;
 	QTimer updateTimer;
 	QQuickView * rightView;
-	QQuickView * leftView;
+	//QQuickView * leftView;
 	int gameObjectIndex;
 	void keyPressEvent(QKeyEvent * e)override;
 	void keyReleaseEvent(QKeyEvent * e)override;
